@@ -1,3 +1,7 @@
 .env
 test.py
 SPEC2RTL/PRISM_Pitch_Script.docx
+__pycache__/
+*.docx
+tests/
+Spec2RTL-Agent-README.md

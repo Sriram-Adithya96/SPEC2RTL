@@ -1,5 +1,6 @@
+from typing  import List
 from langchain.agents import create_agent
-
+from langchain_core.documents import Document 
 from src.llm import get_llm
 from src.schemas import Understanding
 
@@ -131,7 +132,7 @@ def create_understanding_agent():
     )
 
 
-def understand_specification(specification: str) -> Understanding:
+def understand_specification(documents:List[Document],) -> Understanding:
     """
     Extract a structured understanding from a hardware specification.
 
@@ -144,9 +145,11 @@ def understand_specification(specification: str) -> Understanding:
     Raises:
         ValueError: If the specification is empty or contains only whitespace.
     """
-    if not specification.strip():
+    if not documents:
         raise ValueError("specification must not be empty")
-
+    
+     
+    specification = "\n\n".join(doc.page_content for doc in documents)
     agent = create_understanding_agent()
 
     result = agent.invoke(

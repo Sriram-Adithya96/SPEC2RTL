@@ -1,0 +1,7 @@
+langchain-community
+langchain
+langchain-openai
+langchain-text-splitters
+python-dotenv
+docx2txt
+pymupdf

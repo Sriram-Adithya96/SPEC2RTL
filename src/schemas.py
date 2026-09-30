@@ -11,3 +11,5 @@ class Understanding(BaseModel):
     functional_requirements: List[str]
     constraints: List[str]
     ambiguities: List[str]
+
+

@@ -23,10 +23,6 @@ from typing import List
 # Specification
 # -------------------------
 
-class Specification(BaseModel):
-    specification_text: str
-
-
 
 class Component(BaseModel):
     name: str
@@ -35,10 +31,17 @@ class Component(BaseModel):
     outputs: List[str]
 
 
+class ImplementationStep(BaseModel):
+    step_number: int
+    title: str
+    description: str
+
+
+
 class DecompositionOutput(BaseModel):
     components: List[Component]
     interactions: List[str]
-
+    implementation_plan: List[ImplementationStep]
 
 
 class Signal(BaseModel):

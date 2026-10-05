@@ -1,4 +1,5 @@
 langchain-community
+langchain
 langchain-openai
 langchain-text-splitters
 python-dotenv

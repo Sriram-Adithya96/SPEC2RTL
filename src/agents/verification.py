@@ -1,8 +1,9 @@
+from src.schemas import DescriptionOutput
 from langchain.agents import create_agent
 
 from src.llm import get_llm
 from src.schemas import VerificationResult
-
+from src.agents.description import describe_component
 
 SYSTEM_PROMPT = """You are the Verification Agent in the Spec2RTL-Agent system.
 
@@ -36,36 +37,40 @@ The final response must conform strictly to the VerificationResult schema.
 
 
 def create_verification_agent():
-    """Create the tool-free RTL static-review agent."""
-    return create_agent(
-        model=get_llm(),
-        tools=[],
-        system_prompt=SYSTEM_PROMPT,
-        response_format=VerificationResult,
-    )
+  return create_agent(
+    model= get_llm(),
+    tools=[],
+    response_format = VerificationResult,
+    system_prompt = SYSTEM_PROMPT
 
 
-def verify_rtl(specification: str, rtl_code: str) -> VerificationResult:
-    """Statically compare RTL with its specification; this does not run a simulator."""
-    if not specification or not specification.strip():
-        raise ValueError("specification must not be empty")
-    if not rtl_code or not rtl_code.strip():
-        raise ValueError("rtl_code must not be empty")
+  )
 
-    agent = create_verification_agent()
-    result = agent.invoke(
+
+def verify_description(source_chunks:list,description:DescriptionOutput)-> VerificationResult:
+  agent = create_verification_agent()
+
+  specifications = "\n\n".join(doc.page_content for doc in source_chunks)
+
+  
+
+  result = agent.invoke(
+    {
+      "messages":[
         {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": (
-                        "HARDWARE SPECIFICATION:\n"
-                        f"{specification}\n\n"
-                        "RTL CODE:\n"
-                        f"{rtl_code}"
-                    ),
-                }
-            ]
+          "role":"user",
+          "content":f"""
+          Original Specification : 
+          {specifications}
+
+          Description to Verify:
+          {description.model_dump_json(indent=2)}
+          Verify the description against the original specification."""
+
+          
         }
-    )
-    return result["structured_response"]
+      ]
+    }
+  )
+  return result['structured_response']
+

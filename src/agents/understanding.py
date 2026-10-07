@@ -150,6 +150,8 @@ def understand_specification(documents:List[Document],) -> Understanding:
     
      
     specification = "\n\n".join(doc.page_content for doc in documents)
+    
+   
     agent = create_understanding_agent()
 
     result = agent.invoke(
@@ -162,5 +164,5 @@ def understand_specification(documents:List[Document],) -> Understanding:
             ]
         }
     )
-
-    return result["structured_response"]
+    
+    return result['structured_response']

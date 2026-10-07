@@ -1,4 +1,4 @@
-from src.schemas import DescriptionOutput
+ from src.schemas import DescriptionOutput
 from langchain.agents import create_agent
 
 from src.llm import get_llm
@@ -37,40 +37,47 @@ The final response must conform strictly to the VerificationResult schema.
 
 
 def create_verification_agent():
-  return create_agent(
-    model= get_llm(),
-    tools=[],
-    response_format = VerificationResult,
-    system_prompt = SYSTEM_PROMPT
+    return create_agent(
+        model=get_llm(),
+        tools=[],
+        response_format=VerificationResult,
+        system_prompt=SYSTEM_PROMPT
+    )
 
 
-  )
+def verify_description(
+    source_chunks: list,
+    description: DescriptionOutput
+) -> VerificationResult:
+
+    agent = create_verification_agent()
+
+    specifications = "\n\n".join(
+      doc.page_content for doc in source_chunks 
+    )
 
 
-def verify_description(source_chunks:list,description:DescriptionOutput)-> VerificationResult:
-  agent = create_verification_agent()
-
-  specifications = "\n\n".join(doc.page_content for doc in source_chunks)
-
-  
-
-  result = agent.invoke(
-    {
-      "messages":[
+    result = agent.invoke(
         {
-          "role":"user",
-          "content":f"""
-          Original Specification : 
-          {specifications}
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"""
+Original Specification:
+{specifications}
 
-          Description to Verify:
-          {description.model_dump_json(indent=2)}
-          Verify the description against the original specification."""
+RTL Description to Verify:
+{description.model_dump_json(indent=2)}
 
-          
+Verify only the component represented by the RTL description.
+
+Identify the relevant specification requirements for this component and ignore unrelated components.
+
+Perform static verification only.
+"""
+                }
+            ]
         }
-      ]
-    }
-  )
-  return result['structured_response']
+    )
 
+    return result["structured_response"]

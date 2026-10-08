@@ -1,7 +1,7 @@
 from src.schemas import DescriptionOutput
 from langchain.agents import create_agent
 
-from llm.llm import get_llm
+from src.llm.llm import get_llm
 from src.schemas import VerificationResult
 from src.agents.description import describe_component
 

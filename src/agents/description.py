@@ -1,5 +1,5 @@
 from langchain.agents import create_agent
-from llm.llm import get_llm
+from src.llm.llm import get_llm
 from src.schemas import DescriptionOutput, DecompositionOutput
 
 SYSTEM_PROMPT = SYSTEM_PROMPT = """You are the Description Agent in the Spec2RTL-Agent system.

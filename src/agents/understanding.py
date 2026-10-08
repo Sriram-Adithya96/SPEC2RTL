@@ -1,7 +1,7 @@
 from typing import List
 from langchain.agents import create_agent
 from langchain_core.documents import Document
-from llm.llm import get_llm
+from src.llm.llm import get_llm
 from src.schemas import Understanding
 
 SYSTEM_PROMPT = """You are the Understanding Agent, the first stage of a hardware-to-RTL pipeline.

@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from langchain_qdrant import QdrantVectorStore
-from src.embeddings import embeddings 
+from src.embeddings import get_embeddings 
+
 
 load_dotenv()
 
@@ -12,6 +13,7 @@ COLLECTION_NAME = "spec2rtl"
 
 VECTOR_SIZE = 1024 
 
+embeddings =get_embeddings()
 
 
 def create_vector_store():

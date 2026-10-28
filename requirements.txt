@@ -1,8 +1,13 @@
-langchain-community
+
 langchain
+langchain-community
 langchain-openai
 langchain-text-splitters
+langchain-huggingface
+sentence-transformers
+torch
 python-dotenv
 docx2txt
 pymupdf
-langchain_huggingface
+qdrant-client
+langchain-qdrant

@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
-from PIL.ImagePalette import load
+
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 import os 
 import dotenv 

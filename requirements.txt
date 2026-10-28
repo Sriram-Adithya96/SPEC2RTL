@@ -5,4 +5,8 @@ langchain-text-splitters
 python-dotenv
 docx2txt
 pymupdf
+<<<<<<< HEAD
 
+=======
+langchain_huggingface
+>>>>>>> d3ffb7124e6a881fd11781abb20318c352d977a0

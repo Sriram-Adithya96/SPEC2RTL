@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 from src.llm import get_llm
 from src.schemas import DescriptionOutput, DecompositionOutput
 
-SYSTEM_PROMPT = SYSTEM_PROMPT = """You are the Description Agent in the Spec2RTL-Agent system.
+SYSTEM_PROMPT = """You are the Description Agent in the Spec2RTL-Agent system.
 
 Your job is to take ONE hardware component provided by the Decomposer Agent
 and create a detailed structured description of that component.
@@ -45,8 +45,9 @@ For the component, provide:
    Describe the functional behavior of the component as a list of clear
    statements.
 
-Use only information provided by the Decomposer Agent.
-Do not generate RTL code.
+Use the original component information and any supplied reflection feedback.
+Treat feedback as suggested corrections, not as new hardware requirements.
+Never invent details missing from the original component.
 
 The final response must conform strictly to the DescriptionOutput schema.
 """
@@ -59,33 +60,46 @@ def create_description_agent():
         response_format=DescriptionOutput,
     )
 
-def describe_component(component) -> DescriptionOutput:
+def describe_component(
+    component,
+    feedback=None,
+    previous_description=None
+) -> DescriptionOutput:
+
     agent = create_description_agent()
 
     component_json = component.model_dump_json(indent=2)
+
+    if feedback is None:
+        prompt = component_json
+
+    else:
+        prompt = f"""
+        Original Component:
+        {component_json}
+
+        Previous Description:
+        {previous_description.model_dump_json(indent=2)
+         if previous_description else "None"}
+
+        Reflection Feedback:
+        {feedback}
+
+        Revise the previous description using the feedback.
+
+        Only make corrections supported by the original component.
+        Do not invent missing requirements.
+        """
 
     result = agent.invoke(
         {
             "messages": [
                 {
                     "role": "user",
-                    "content": component_json
+                    "content": prompt
                 }
             ]
         }
     )
 
     return result["structured_response"]
-if __name__ == "__main__":
-    from src.schemas import Component
-
-    component = Component(
-        name="ALU",
-        purpose="Performs arithmetic and logical operations",
-        inputs=["A", "B", "opcode"],
-        outputs=["result"]
-    )
-
-    result = describe_component(component)
-
-    print(result)

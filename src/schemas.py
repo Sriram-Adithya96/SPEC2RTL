@@ -67,7 +67,10 @@ class VerificationResult(BaseModel):
     suggestions: List[str]
     reasoning: str
 
-
+class ReflectionOutput(BaseModel):
+    needs_revision: bool
+    feedback: List[str]
+    reasoning: str
 
 class DescriptionRevisionInput(BaseModel):
     description: DescriptionOutput

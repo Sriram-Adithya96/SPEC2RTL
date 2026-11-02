@@ -1,12 +1,12 @@
-langchain-community
 langchain
+langchain-community
 langchain-openai
 langchain-text-splitters
+langchain-huggingface
+sentence-transformers
+torch
 python-dotenv
 docx2txt
 pymupdf
-<<<<<<< HEAD
-
-=======
-langchain_huggingface
->>>>>>> d3ffb7124e6a881fd11781abb20318c352d977a0
+qdrant-client
+langchain-qdrant

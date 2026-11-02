@@ -1,5 +1,6 @@
-from pydantic import BaseModel 
-from typing import List, Optional, Dict 
+from pydantic import BaseModel , Field 
+ 
+from typing import List, Optional, Dict  
 
 
 
@@ -94,3 +95,11 @@ class ImplementationPlan(BaseModel):
     module_name: str
     objective: str
     steps: List[ImplementationStep]
+
+
+class CodeOuput(BaseModel):
+    component_name :str 
+    code: str = Field(
+        description="Generated Python source code"
+    )
+    assumptions: list[str] = Field(default_factory=list)

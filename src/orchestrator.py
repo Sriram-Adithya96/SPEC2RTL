@@ -1,5 +1,5 @@
 
-from typing  import TypedDict
+from typing  import TypedDict,NotRequired
 
 from langgraph.graph import StateGraph, START, END
 
@@ -8,7 +8,7 @@ from src.agents.understanding import understand_specification
 from src.agents.decomposer import decomposer
 from src.agents.description import describe_component
 from src.agents.code import generate_code
-from src.schemas import Understanding, DecompositionOutput
+from src.schemas import Understanding, DecompositionOutput ,VerificationResult
 
 
 class Spec2RTLState(TypedDict):
@@ -18,6 +18,11 @@ class Spec2RTLState(TypedDict):
     decomposition: DecompositionOutput
     generated_code: list[str]
     status: str
+    #Verification 
+    retrieved_chunks :list
+    verification : VerificationResult
+    iteration : int
+    status : str
 
 
 def ingest_node(state: Spec2RTLState):

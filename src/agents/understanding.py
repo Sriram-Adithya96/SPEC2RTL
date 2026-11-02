@@ -1,8 +1,10 @@
+from langchain_core.callbacks import usage
 from typing import List
 from langchain.agents import create_agent
 from langchain_core.documents import Document
 from src.llm.llm import get_llm
 from src.schemas import Understanding
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 
 SYSTEM_PROMPT = """You are the Understanding Agent, the first stage of a hardware-to-RTL pipeline.
 
@@ -103,18 +105,43 @@ def create_understanding_agent():
 def understand_specification(documents: List[Document]) -> Understanding:
     if not documents:
         raise ValueError("specification must not be empty")
-
+    print(documents)
     specification = "\n\n".join(doc.page_content for doc in documents)
-    
+    print("==========================================================================")
+    print(specification)
+
    
     agent = create_understanding_agent()
+    token_usage = UsageMetadataCallbackHandler()
 
     result = agent.invoke(
-        {
-            "messages": [
-                {"role": "user", "content": specification}
-            ]
-        }
+    {
+        "messages": [
+            {"role": "user", "content": specification}
+        ]
+    },
+    config={"callbacks": [token_usage]},)
+
+    input_tokens = sum(
+        data["input_tokens"]
+        for data in token_usage.usage_metadata.values()
     )
-    
+
+    output_tokens = sum(
+        data["output_tokens"]
+        for data in token_usage.usage_metadata.values()
+    )
+
+    total_tokens = sum(
+        data["total_tokens"]
+        for data in token_usage.usage_metadata.values()
+    )
+
+    print("\n========== UNDERSTANDING AGENT TOKEN USAGE ==========")
+    print(f"Input tokens:  {input_tokens}")
+    print(f"Output tokens: {output_tokens}")
+    print(f"Total tokens:  {total_tokens}")
+    print("=====================================================\n")
+
+
     return result['structured_response']

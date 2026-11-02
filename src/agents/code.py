@@ -21,8 +21,9 @@ Rules:
 llm = get_llm()
 
 
-def generate_code(description:str):
+def generate_code(description:DescriptionOutput):
     agent = create_agent(model  = llm ,system_prompt=SYSTEM_PROMPT , response_format=CodeOuput)
+    djson = description.model_dump_json()
     result= agent.invoke(
         {
             'messages':[
@@ -30,7 +31,7 @@ def generate_code(description:str):
                     "role": "user",
                     "content": (
                         "Generate Python code for this verified component:\n\n"
-                        f"{description}"
+                        f"{djson}"
                     ),
                 }
 

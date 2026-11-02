@@ -100,6 +100,6 @@ class ImplementationPlan(BaseModel):
 class CodeOuput(BaseModel):
     component_name :str 
     code: str = Field(
-        description="Generated Python source code"
+        description="synthesizable Python code for this component."
     )
     assumptions: list[str] = Field(default_factory=list)

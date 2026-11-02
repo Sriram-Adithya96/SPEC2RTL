@@ -1,5 +1,6 @@
-from pydantic import BaseModel 
-from typing import List, Optional, Dict 
+from pydantic import BaseModel , Field 
+ 
+from typing import List, Optional, Dict  
 
 
 
@@ -47,7 +48,15 @@ class DecompositionOutput(BaseModel):
 class Signal(BaseModel):
     name: str
     direction: str
-    width: int
+    width: str
+    description: str
+
+
+class StateElement(BaseModel):
+    name: str
+    type: str
+    width: str
+    reset_value: str
     description: str
 
 
@@ -56,8 +65,10 @@ class DescriptionOutput(BaseModel):
     purpose: str
     inputs: List[Signal]
     outputs: List[Signal]
-    internal_signals: List[Signal]
+    state_elements: List[StateElement]
+    constraints: List[str]
     behavior: List[str]
+    spec_references: List[str]
 
 
 
@@ -87,3 +98,11 @@ class ImplementationPlan(BaseModel):
     module_name: str
     objective: str
     steps: List[ImplementationStep]
+
+
+class CodeOuput(BaseModel):
+    component_name :str 
+    code: str = Field(
+        description="synthesizable Python code for this component."
+    )
+    assumptions: list[str] = Field(default_factory=list)

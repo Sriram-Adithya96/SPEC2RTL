@@ -1,11 +1,11 @@
 from langchain.agents import create_agent 
-from src.schemas import DescriptionOutput , CodeOuput 
+from src.schemas import  CodeOuput , DecompositionOutput , PseudocodeGenerationOutput
 from src.llm.llm import get_llm 
 
 SYSTEM_PROMPT = """
 You are a code generation agent in the SPEC2RTL pipeline.
 
-Your task is to generate Python code from a verified component description.
+Your task is to generate RTL code from a verified component description.
 
 Rules:
 - Follow the component description strictly.
@@ -21,16 +21,16 @@ Rules:
 llm = get_llm()
 
 
-def generate_code(description:DescriptionOutput):
+def generate_code(pseudocode : PseudocodeGenerationOutput):
     agent = create_agent(model  = llm ,system_prompt=SYSTEM_PROMPT , response_format=CodeOuput)
-    djson = description.model_dump_json()
+    djson = pseudocode.model_dump_json()
     result= agent.invoke(
         {
             'messages':[
                 {
                     "role": "user",
                     "content": (
-                        "Generate Python code for this verified component:\n\n"
+                        "Generate RTL code for this verified component:\n\n"
                         f"{djson}"
                     ),
                 }

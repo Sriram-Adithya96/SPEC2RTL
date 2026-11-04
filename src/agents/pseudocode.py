@@ -420,7 +420,7 @@ def generate_pseudocode(
     verification_results: List[VerificationResult] | None = None,
 ) -> PseudocodeGenerationOutput:
 
-    llm = get_llm("pseudocode")
+    llm = get_llm()
 
     decomposition_text = decomposition.model_dump_json(indent=2)
     descriptions_text = "\n\n".join(

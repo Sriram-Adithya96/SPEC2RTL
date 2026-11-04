@@ -1,5 +1,6 @@
-from pydantic import BaseModel 
-from typing import List, Optional, Dict 
+from pydantic import BaseModel , Field 
+ 
+from typing import List, Optional, Dict  
 
 
 
@@ -97,3 +98,10 @@ class PseudocodeGenerationOutput(BaseModel):
     pseudocode: List[str]
     assumptions: List[str]
     unresolved_issues: List[str]
+
+class CodeOuput(BaseModel):
+    component_name :str 
+    code: str = Field(
+        description="synthesizable Python code for this component."
+    )
+    assumptions: list[str] = Field(default_factory=list)

@@ -32,7 +32,7 @@ class Component(BaseModel):
     outputs: List[str]
 
 
-class ImplementationStep(BaseModel):
+class ImplementationStep(BaseModel): # type: ignore
     step_number: int
     title: str
     description: str

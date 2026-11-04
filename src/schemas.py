@@ -85,17 +85,19 @@ class DescriptionRevisionInput(BaseModel):
     verification: VerificationResult
 
 
-class ImplementationStep(BaseModel):
-    step_number: int
-    title: str
-    description: str
-
-
 class ImplementationPlan(BaseModel):
     module_name: str
     objective: str
     steps: List[ImplementationStep]
 
+class PseudocodeGenerationOutput(BaseModel):
+    module_name: str
+    objective: str
+    inputs: List[str]
+    outputs: List[str]
+    pseudocode: List[str]
+    assumptions: List[str]
+    unresolved_issues: List[str]
 
 class CodeOuput(BaseModel):
     component_name :str 

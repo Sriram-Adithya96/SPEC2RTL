@@ -5,3 +5,5 @@ __pycache__/
 *.docx
 tests/
 Spec2RTL-Agent-README.md
+.history/
+outputs/

@@ -3,24 +3,23 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
-
+from langchain_openrouter import ChatOpenRouter
 
 import os 
 import dotenv 
 
 load_dotenv()
 
-"""def get_llm():
-    llm =  ChatOpenAI(
-      model="openrouter/free", 
-         #api_key=os.getenv("SPEC2RTL_OPENROUTER_KEY") ,   
-        base_url="https://openrouter.ai/api/v1",
-        temperature=0 
-    )
-    
+def get_llm():
+   llm =ChatOpenRouter(
+     model="deepseek/deepseek-v4-flash",
+     api_key=os.getenv("SPEC2RTL_OPENROUTER_KEY") # type: ignore
+   )
+   return llm 
 
-    return llm"""
 
+
+"""
 def get_llm():
     llm =ChatGroq(
         model = "openai/gpt-oss-120b",
@@ -39,4 +38,4 @@ def reasoning_llm():
     )
     return llm
 
- 
+ """

@@ -10,3 +10,4 @@ docx2txt
 pymupdf
 qdrant-client
 langchain-qdrant
+langchain-openrouter

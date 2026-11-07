@@ -1,12 +1,12 @@
-from pydantic import BaseModel , Field 
- 
-from typing import List, Optional, Dict  
+from pydantic import BaseModel , Field
+
+from typing import List, Optional, Dict
 
 
 
 class Understanding(BaseModel):
     system_purpose: str
-    major_components: List[str] 
+    major_components: List[str]
     inputs: List[str]
     outputs: List[str]
     functional_requirements: List[str]
@@ -87,21 +87,16 @@ class DescriptionRevisionInput(BaseModel):
     description: DescriptionOutput
     verification: VerificationResult
 
-
-class ImplementationStep(BaseModel):
-    step_number: int
-    title: str
-    description: str
-
-
 class ImplementationPlan(BaseModel):
     module_name: str
     objective: str
     steps: List[ImplementationStep]
 
 
+
+
 class CodeOuput(BaseModel):
-    component_name :str 
+    component_name :str
     code: str = Field(
         description="synthesizable Python code for this component."
     )

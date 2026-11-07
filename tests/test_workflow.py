@@ -1,23 +1,23 @@
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
 from src.schemas import VerificationResult, ReflectionOutput
 from src.agents.workflow import run_reflection_workflow
 
 
-# TEST 1: Verification fails once, then passes
 def test_workflow():
 
     failed = VerificationResult(
         valid=False,
         issues=["Addition operation is missing"],
-        suggestions=["Check addition operation"],
-        reasoning="The specification requires addition."
+        suggestions=["Add addition"],
+        reasoning="Addition is required."
     )
 
     passed = VerificationResult(
         valid=True,
         issues=[],
         suggestions=[],
-        reasoning="Description satisfies the specification."
+        reasoning="Code is correct."
     )
 
     reflection = ReflectionOutput(
@@ -26,34 +26,36 @@ def test_workflow():
         reasoning="Addition is required."
     )
 
+    description = MagicMock()
+    first_code = MagicMock()
+    revised_code = MagicMock()
+
     with patch("src.agents.workflow.describe_component") as describe, \
-         patch("src.agents.workflow.verify_description") as verify, \
+         patch("src.agents.workflow.generate_code") as generate, \
+         patch("src.agents.workflow.verify_code") as verify, \
          patch("src.agents.workflow.reflect_on_verification") as reflect:
 
-        describe.side_effect = ["First description", "Corrected description"]
+        describe.return_value = description
+        generate.side_effect = [first_code, revised_code]
         verify.side_effect = [failed, passed]
         reflect.return_value = reflection
 
-        result = run_reflection_workflow(
-            component=None,
-            source_chunks=[]
-        )
+        result = run_reflection_workflow(None, [])
 
         assert result["success"] == True
-        assert result["description"] == "Corrected description"
+        assert result["code"] == revised_code
         assert verify.call_count == 2
         assert reflect.call_count == 1
+        assert generate.call_count == 2
+        assert describe.call_count == 1
 
-        print("Workflow test passed!")
 
-
-# TEST 2: Verification keeps failing
 def test_max_retries():
 
     failed = VerificationResult(
         valid=False,
-        issues=["Description is still incorrect"],
-        suggestions=["Correct the description"],
+        issues=["Code is still incorrect"],
+        suggestions=["Correct the code"],
         reasoning="Verification failed."
     )
 
@@ -63,27 +65,23 @@ def test_max_retries():
         reasoning="Corrections are required."
     )
 
+    description = MagicMock()
+    generated_codes = [MagicMock() for _ in range(4)]
+
     with patch("src.agents.workflow.describe_component") as describe, \
-         patch("src.agents.workflow.verify_description") as verify, \
+         patch("src.agents.workflow.generate_code") as generate, \
+         patch("src.agents.workflow.verify_code") as verify, \
          patch("src.agents.workflow.reflect_on_verification") as reflect:
 
-        describe.return_value = "Description"
+        describe.return_value = description
+        generate.side_effect = generated_codes
         verify.return_value = failed
         reflect.return_value = reflection
 
-        result = run_reflection_workflow(
-            component=None,
-            source_chunks=[]
-        )
+        result = run_reflection_workflow(None, [])
 
         assert result["success"] == False
         assert verify.call_count == 4
         assert reflect.call_count == 3
-        assert describe.call_count == 4
-
-        print("Maximum retry test passed!")
-
-
-if __name__ == "__main__":
-    test_workflow()
-    test_max_retries()
+        assert generate.call_count == 4
+        assert describe.call_count == 1

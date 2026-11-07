@@ -1,21 +1,24 @@
+
 from src.agents.description import describe_component
-from src.agents.verification import verify_description
+from src.agents.code import generate_code
+from src.agents.verification import verify_code
 from src.agents.reflection import reflect_on_verification
 
 MAX_RETRIES = 3
 
 
-def run_reflection_workflow(component, source_chunks):
-
+def run_reflection_workflow(component, source_chunks) -> dict:
     description = describe_component(component)
+
+    generated_code = generate_code(description)
 
     for attempt in range(MAX_RETRIES + 1):
 
         print(f"\nVerification attempt {attempt + 1}")
 
-        verification = verify_description(
+        verification = verify_code(
             source_chunks,
-            description
+            generated_code
         )
 
         if verification.valid:
@@ -24,6 +27,7 @@ def run_reflection_workflow(component, source_chunks):
             return {
                 "success": True,
                 "description": description,
+                "code": generated_code,
                 "verification": verification
             }
 
@@ -33,12 +37,13 @@ def run_reflection_workflow(component, source_chunks):
             return {
                 "success": False,
                 "description": description,
+                "code": generated_code,
                 "verification": verification
             }
 
         reflection = reflect_on_verification(
             source_chunks,
-            description,
+            generated_code,
             verification
         )
 
@@ -50,12 +55,14 @@ def run_reflection_workflow(component, source_chunks):
             return {
                 "success": False,
                 "description": description,
+                "code": generated_code,
                 "verification": verification,
                 "reflection": reflection
             }
 
-        description = describe_component(
-            component,
+        generated_code = generate_code(
+            description,
             feedback=reflection.feedback,
-            previous_description=description
+            previous_code=generated_code
         )
+    raise RuntimeError("Workflow exited unexpectedly.")

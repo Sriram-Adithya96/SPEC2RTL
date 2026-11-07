@@ -5,7 +5,6 @@ from src.schemas import DecompositionOutput, Understanding
 
 
 
-
 SYSTEM_PROMPT = """You are the Decomposer Agent in the Spec2RTL-Agent system, a multi-agent system that converts complex hardware specification documents into RTL (Register Transfer Level) code.
 
 Your primary responsibility is to take the structured hardware understanding output from the Understanding Agent and break down the complete hardware design into smaller, manageable sub-modules or sub-functions.
@@ -55,5 +54,3 @@ def decomposer(understanding: Understanding )->DecompositionOutput:
         }
     )
     return result['structured_response']
-
-

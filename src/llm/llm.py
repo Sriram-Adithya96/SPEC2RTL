@@ -9,7 +9,7 @@ import os
 import dotenv 
 
 load_dotenv()
-
+"""
 def get_llm():
    llm =ChatOpenRouter(
      model="deepseek/deepseek-v4-flash",
@@ -17,19 +17,16 @@ def get_llm():
    )
    return llm 
 
-
-
 """
-def get_llm():
-    llm =ChatGroq(
-        model = "openai/gpt-oss-120b",
-        temperature=0,
-        
 
+
+def get_llm():
+    llm = ChatGroq(
+        model="openai/gpt-oss-120b",
+        temperature=0
     )
     return llm
-
-
+"""
 def reasoning_llm():
     llm = ChatGoogleGenerativeAI(
         model = "gemini-3.8-flash", 
@@ -38,4 +35,4 @@ def reasoning_llm():
     )
     return llm
 
- """
+"""

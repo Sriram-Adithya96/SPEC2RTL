@@ -12,6 +12,7 @@ System Purpose:
 Major Components:
 {", ".join(request.major_components)}
 
+
 Inputs:
 {", ".join(request.inputs)}
 

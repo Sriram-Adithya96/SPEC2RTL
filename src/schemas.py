@@ -105,3 +105,10 @@ class CodeOuput(BaseModel):
         description="synthesizable Python code for this component."
     )
     assumptions: list[str] = Field(default_factory=list)
+
+
+class ReflectionOutput(BaseModel):
+    needs_revision: bool
+    feedback: List[str] = Field(default_factory=list)
+    reasoning: str
+    corrected_code: Optional[CodeOuput] = None

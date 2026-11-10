@@ -71,7 +71,10 @@ def pseudocode_node(state: Spec2RTLState):
 
 
 def generation_node(state: Spec2RTLState):
-    result = generate_code(state["pseudocode"])
+    result = generate_code(
+        pseudocode=state["pseudocode"],
+        descriptions=state["descriptions"],
+    )
 
     return {
         "generated_code": [result.code],

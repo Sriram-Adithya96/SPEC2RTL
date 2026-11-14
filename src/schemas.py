@@ -1,6 +1,6 @@
 from pydantic import BaseModel , Field 
  
-from typing import List, Optional, Dict  
+from typing import List
 
 
 
@@ -105,10 +105,3 @@ class CodeOuput(BaseModel):
         description="synthesizable Python code for this component."
     )
     assumptions: list[str] = Field(default_factory=list)
-
-
-class ReflectionOutput(BaseModel):
-    needs_revision: bool
-    feedback: List[str] = Field(default_factory=list)
-    reasoning: str
-    corrected_code: Optional[CodeOuput] = None

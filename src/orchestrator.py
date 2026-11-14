@@ -16,12 +16,11 @@ from src.schemas import (
     DecompositionOutput,
     DescriptionOutput,
     PseudocodeGenerationOutput,
-    ReflectionOutput,
     Understanding,
     VerificationResult,
 )
 
-MAX_REFLECTION_ITERATIONS = 2
+MAX_REFLECTION_TRIES = 2
 
 
 class Spec2RTLState(TypedDict):
@@ -36,7 +35,7 @@ class Spec2RTLState(TypedDict):
     generated_outputs: list[CodeOuput]
     status: str
     verification: list[VerificationResult]
-    reflection: list[ReflectionOutput]
+    reflection: list[CodeOuput]
     iteration: int
 
 
@@ -90,17 +89,29 @@ def generation_node(state: Spec2RTLState):
 
 
 def verify_node(state: Spec2RTLState):
+    if not state["generated_outputs"]:
+        raise ValueError("Cannot verify an empty generated_outputs list")
     verification = [
         verify_code(state["children"], generated_output)
         for generated_output in state["generated_outputs"]
     ]
     return {
         "verification": verification,
-        "status": "verified",
+        "status": (
+            "verified"
+            if all(result.valid for result in verification)
+            else "verification_failed"
+        ),
     }
 
 
 def reflection_node(state: Spec2RTLState):
+    if len(state["generated_outputs"]) != len(state["verification"]):
+        raise ValueError(
+            "generated_outputs and verification must contain the same number "
+            "of items before reflection"
+        )
+
     reflections = [
         reflect_on_verification(
             state["children"],
@@ -113,24 +124,10 @@ def reflection_node(state: Spec2RTLState):
         )
     ]
 
-    revised_outputs: list[CodeOuput] = []
-    for generated_output, reflection in zip(
-        state["generated_outputs"],
-        reflections,
-    ):
-        if reflection.needs_revision:
-            if reflection.corrected_code is None:
-                raise ValueError(
-                    "Reflection requested a revision without returning corrected_code"
-                )
-            revised_outputs.append(reflection.corrected_code)
-        else:
-            revised_outputs.append(generated_output)
-
     return {
         "reflection": reflections,
-        "generated_outputs": revised_outputs,
-        "generated_code": [output.code for output in revised_outputs],
+        "generated_outputs": reflections,
+        "generated_code": [output.code for output in reflections],
         "iteration": state["iteration"] + 1,
         "status": "revised",
     }
@@ -139,14 +136,12 @@ def reflection_node(state: Spec2RTLState):
 def route_after_verification(state: Spec2RTLState):
     if all(result.valid for result in state["verification"]):
         return END
-    if state["iteration"] >= MAX_REFLECTION_ITERATIONS:
+    if state["iteration"] >= MAX_REFLECTION_TRIES:
         return END
     return "reflect"
 
 
 def route_after_reflection(state: Spec2RTLState):
-    if not any(reflection.needs_revision for reflection in state["reflection"]):
-        return END
     return "verify"
 
 

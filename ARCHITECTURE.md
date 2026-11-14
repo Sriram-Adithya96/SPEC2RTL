@@ -7,10 +7,8 @@ understanding, a component decomposition, component descriptions, canonical
 pseudocode, generated implementation code, and a static verification report.
 The executable workflow is defined in [`src/orchestrator.py`](src/orchestrator.py).
 
-The current implementation is a single forward pass. It does not yet contain a
-conditional verification loop, automatic repair step, or human approval gate.
-Those capabilities are described in the project concept documents, but are not
-connected to the compiled graph.
+The current implementation includes a bounded reflection and re-verification
+loop. It does not include a human approval gate.
 
 ## 2. System context
 
@@ -37,23 +35,27 @@ PDF/DOCX specification
           |
           v
      Verification Agent
+          | invalid and attempts remain
+          v
+     Reflection Agent -> revised code -> Verification Agent
           |
           v
   Results and verification report
 ```
 
-The workflow is built with LangGraph's `StateGraph`. `START` enters the
-`ingest` node and `END` follows the `verify` node:
+The workflow is built with LangGraph's `StateGraph`. Failed verification can
+route through reflection and verification again, up to the configured limit:
 
 ```text
 START -> ingest -> understand -> decompose -> describe -> pseudocode
-      -> generate -> verify -> END
+      -> generate -> verify -> END (valid or retry limit reached)
+                              \\-> reflect -> verify (revision returned)
 ```
 
-There are no conditional edges in the current graph. Every successful node
-executes exactly once, except that `describe` invokes its agent once for each
-decomposed component and `verify` invokes its agent once for each generated
-output.
+The graph has conditional edges after verification and reflection. With
+`MAX_REFLECTION_TRIES = 2`, it allows up to two correction attempts.
+`describe`, `verify`, and `reflect` process their respective lists
+sequentially.
 
 ## 3. Runtime entry point
 
@@ -98,9 +100,10 @@ LangGraph state contract:
 | `pseudocode` | `PseudocodeGenerationOutput` | `pseudocode` | System-level canonical hardware pseudocode |
 | `generated_code` | `list[str]` | `generate` | Code strings exposed for consumers |
 | `generated_outputs` | `list[CodeOuput]` | `generate` | Structured code output and assumptions |
-| `status` | `str` | `generate`, `verify` | `"generated"` then `"verified"` |
-| `verification` | `list[VerificationResult]` | `verify` | Static verification results |
-| `iteration` | `int` | caller/consumer | Reserved for future iterative repair |
+| `status` | `str` | `generate`, `verify`, `reflect` | generated, verified, verification_failed, revised, or unresolved |
+| `verification` | `list[VerificationResult]` | `verify` | Latest static verification results |
+| `reflection` | `list[CodeOuput]` | `reflect` | Complete corrected code outputs |
+| `iteration` | `int` | `ingest`, `reflect` | Number of reflection attempts made |
 
 The state is accumulated by returning partial dictionaries from each node.
 Nodes read only the fields produced by their predecessors, except for
@@ -127,9 +130,9 @@ The loader first creates parent chunks using
 700-character chunk size and 100-character overlap. Child metadata receives a
 `parent_id` identifying its parent.
 
-The node stores only `parent` in graph state. The `children` result is created
-but currently discarded by `ingest_node`; vector retrieval is not part of the
-compiled workflow.
+The node stores both `parent` and `children` in graph state. Verification and
+reflection receive the child chunks as source evidence; vector retrieval is
+not part of the compiled workflow.
 
 ### 5.2 Understand the specification
 
@@ -257,9 +260,9 @@ implementation detail until the contract is aligned.
 **Agent:** [`src/agents/verification.py`](src/agents/verification.py)
 
 For every item in `generated_outputs`, the node calls
-`verify_code(parent, generated_output)`. The verification agent receives:
+`verify_code(children, generated_output)`. The verification agent receives:
 
-- the complete original specification text from the parent chunks
+- the original specification text from the child chunks
 - generated code
 - component name
 - generation assumptions
@@ -273,8 +276,26 @@ simulate, or formally verify the generated code. It returns a
 - `suggestions`
 - `reasoning`
 
-After all outputs are reviewed, the node sets `status` to `"verified"` and the
-graph terminates.
+After all outputs are reviewed, the node sets `status` to `"verified"` when
+all results pass and `"verification_failed"` otherwise. If all results are
+valid, or the reflection attempt limit has been reached, the graph terminates.
+Otherwise, it routes to reflection.
+
+### 5.8 Reflect on failed verification
+
+**Node:** `reflect`
+
+**Implementation:** `reflection_node` in [`src/orchestrator.py`](src/orchestrator.py)
+
+**Agent:** [`src/agents/reflection.py`](src/agents/reflection.py)
+
+The reflection agent receives the child chunks, generated `CodeOuput`, and
+matching `VerificationResult`. Passing verification short-circuits the model
+call. For failures, it returns a complete corrected `CodeOuput` grounded in
+the source text. The graph replaces the generated output with that result and
+sends it through verification again, up to the configured retry limit.
+Generated outputs and verification results must have matching list lengths
+before reflection.
 
 ## 6. Agent and model boundary
 
@@ -326,9 +347,9 @@ DecompositionOutput ----+             |
                               VerificationResult
 ```
 
-`VerificationResult`, `DescriptionRevisionInput`, and `ImplementationPlan`
-also provide contracts for future refinement workflows. They are not currently
-used to create graph edges in `orchestrator.py`.
+`DescriptionRevisionInput` and `ImplementationPlan` provide contracts for
+future refinement workflows. The reflection loop uses `CodeOuput` directly
+for its structured response.
 
 ## 8. Supporting modules outside the graph
 
@@ -337,8 +358,6 @@ compiled workflow:
 
 - [`src/agents/validate_pseudocode.py`](src/agents/validate_pseudocode.py)
   provides deterministic Grammar v1 parsing and semantic validation.
-- [`src/agents/reflection.py`](src/agents/reflection.py) is reserved for
-  reflection-driven correction when verification fails.
 - [`src/vector_store.py`](src/vector_store.py) can create a Qdrant-backed
   `spec2rtl` collection using 1,024-dimensional embeddings.
 - [`src/embeddings.py`](src/embeddings.py) provides embedding configuration.
@@ -368,16 +387,11 @@ explicit graph changes:
 
 1. Add a pseudocode validation node after pseudocode generation and route
    blocking grammar issues back to pseudocode generation.
-2. Add conditional verification edges for `valid=True` and `valid=False`.
-3. Use the reflection agent to classify failures and revise the relevant
-   artifact.
-4. Preserve and use `children` for retrieval-backed evidence selection.
-5. Add compilation, simulation, or formal checks if executable RTL validation
+2. Preserve and use `children` for retrieval-backed evidence selection.
+3. Add compilation, simulation, or formal checks if executable RTL validation
    is required.
-6. Align `CodeOuput` and verification terminology with the actual target
+4. Align `CodeOuput` and verification terminology with the actual target
    language and RTL deliverable.
-7. Replace the reserved `iteration` field with an explicit bounded retry
-   policy if iterative repair is introduced.
 
 Any extension should preserve the source-of-truth rule: the original
 specification must remain authoritative, and unsupported behavior must remain

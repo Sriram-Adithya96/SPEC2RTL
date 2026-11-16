@@ -136,7 +136,7 @@ export default function ReflectionView({ data, runId }) {
     async function loadAttempts() {
       setLoadingAttempts(true);
       const loaded = [];
-      for (let n = 1; n <= 2; n++) {
+      for (let n = 1; n <= 3; n++) {
         try {
           const [refResp, verResp] = await Promise.all([
             fetch("/api/runs/" + runId + "/download/reflection_attempt_" + n + ".json"),

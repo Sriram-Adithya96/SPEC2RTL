@@ -6,7 +6,8 @@ from langchain.agents import create_agent
 from langchain_core.documents import Document
 
 from src.agents.verification import serialize_rtl
-from src.llm.llm import get_llm
+from src.agents.code import _extract_code_output
+from src.llm.llm import get_llm, is_free_openrouter_model
 from src.schemas import (
     CodeOuput,
     DescriptionOutput,
@@ -20,8 +21,8 @@ RTL_REFLECTION_SYSTEM_PROMPT = """
 You are the Reflection Agent in the SPEC2RTL system.
 
 Your task is to analyze the output of the RTL Verification Agent and the original
-hardware specification to provide concrete, actionable correction guidance for
-regenerating synthesizable Verilog RTL.
+hardware specification to provide concrete, actionable corrections and regenerate
+synthesizable Verilog RTL.
 
 You will receive:
 1. The ORIGINAL HARDWARE SPECIFICATION (authoritative source of truth).
@@ -33,12 +34,15 @@ Rules:
 2. Analyze each issue identified by the RTL Verification Agent against the specification.
 3. If verification succeeded (valid=true and no issues):
    - Set needs_revision to false.
-   - Return an empty feedback list and empty component_feedback dictionary.
+   - Return an empty feedback list, empty component_feedback dictionary, and null corrected_code.
 4. If verification failed (valid=false or issues exist):
    - Set needs_revision to true.
    - For each genuine issue confirmed by the specification, provide clear, specific,
-     and actionable instructions explaining how to correct the Verilog code.
+     and actionable instructions explaining how to correct the Verilog code in feedback.
    - Map component-specific corrections to the relevant component module name in component_feedback.
+   - In corrected_code, return the COMPLETE, corrected, synthesizable Verilog RTL implementation
+     that directly repairs all identified issues (fixing module connections, signal wiring such as captured_opcode,
+     and register timing). The corrected code must be syntactically valid Verilog-2001 and synthesizable.
    - Do NOT invent hardware requirements or features not in the original specification.
    - Do NOT silently resolve ambiguities.
    - Base all corrections strictly on the original specification.
@@ -48,8 +52,11 @@ Rules:
      following start. On that clock edge, result <= selected_result and valid <= 1'b1
      must occur immediately, with busy <= 1'b0 and error <= opcode_error.
    - When capture_enable is 0, valid <= 1'b0 and error <= 1'b0.
-   - Never instruct the RTL agent to add an extra 'PROCESSING' state cycle that delays
+   - Never instruct or write an extra 'PROCESSING' state cycle that delays
      valid assertion to cycle 2 or 3.
+
+6. Corrected Code Rule:
+   - If you provide corrected_code, it MUST contain the complete, unbroken, compilable Verilog RTL ending with endmodule for all defined modules. Never output a summary comment or an incomplete header fragment. If you do not provide complete code, set corrected_code to null.
 
 Return ONLY a valid JSON object matching the RTLReflectionOutput schema:
 {
@@ -63,6 +70,7 @@ Return ONLY a valid JSON object matching the RTLReflectionOutput schema:
       "Specific fix for this module"
     ]
   },
+  "corrected_code": "module APU_Core (\\n  input wire clk,\\n  ...\\n);\\n  ...\\nendmodule",
   "reasoning": "Explanation of root cause and required fixes based on the specification"
 }
 """
@@ -95,13 +103,13 @@ def _extract_reflection_json(content: Any) -> dict:
         text = fenced.group(1).strip()
 
     try:
-        parsed = json.loads(text)
+        parsed = json.loads(text, strict=False)
     except json.JSONDecodeError as exc:
         start, end = text.find("{"), text.rfind("}")
         if start < 0 or end <= start:
             raise ValueError("Reflection agent returned invalid JSON.") from exc
         try:
-            parsed = json.loads(text[start:end + 1])
+            parsed = json.loads(text[start:end + 1], strict=False)
         except json.JSONDecodeError as nested_exc:
             raise ValueError("Reflection agent returned invalid JSON.") from nested_exc
 
@@ -201,6 +209,7 @@ SUPPORTING CONTEXT:
 Analyze each verification issue against the original specification.
 Identify specifically which components or signals are incorrect and what exact
 changes are required in the Verilog implementation to satisfy the specification.
+Provide the complete corrected synthesizable Verilog RTL in 'corrected_code' that directly resolves all issues.
 Return a valid JSON object matching the RTLReflectionOutput schema.
 """
 
@@ -253,31 +262,72 @@ Return a valid JSON object matching the RTLReflectionOutput schema.
         )
 
 
+REFLECT_CODE_SYSTEM_PROMPT = """You are the Reflection Agent in the SPEC2RTL system.
+
+Your task is to analyze the output of the Verification Agent and directly correct the generated Verilog RTL code.
+
+You will receive:
+- The original hardware specification (authoritative source of truth)
+- The generated Verilog RTL code
+- The verification result (issues, suggestions, and reasoning)
+
+When verification fails:
+- Carefully analyze every issue identified by the Verification Agent against the specification.
+- Fix all identified issues directly in the Verilog code (correcting register timing, enable signals, opcode capture, and reset behavior).
+- Ensure the code meets the specification's exact timing (e.g., exactly 1-cycle latency from start to valid, with result held stable).
+- Return the complete, corrected synthesizable Verilog module in CodeOuput directly.
+
+MANDATORY SIGNAL RULES (non-negotiable, always enforce these):
+1. valid/error exclusivity:
+   - When operation completes successfully (supported opcode):  valid <= 1'b1; error <= 1'b0;
+   - When operation completes with unsupported opcode:          valid <= 1'b0; error <= 1'b1;
+   - When idle or processing (no completion this cycle):        valid <= 1'b0; error <= 1'b0;
+   - valid and error MUST NEVER both be asserted at the same time.
+2. result register holding:
+   - result_reg must hold its previous value when no valid operation completes this cycle.
+   - Never drive result_reg with 0 or any default value except during synchronous reset.
+3. busy signal:
+   - busy must be high for the ENTIRE duration from start acceptance until the cycle valid/error asserts.
+   - busy must deassert on the same cycle that valid or error asserts (not one cycle before or after).
+4. 1-cycle latency:
+   - Operands and opcode are captured (registered) on the cycle start is accepted.
+   - result_reg and valid/error are driven by registered values exactly one cycle later.
+
+Rules:
+- Provide the complete, compilable Verilog-2001 implementation in 'code' starting with `module` and ending with `endmodule`.
+- Do not truncate or omit any logic.
+- Do not invent requirements not stated in the original specification.
+- Base all corrections strictly on the specification.
+- Return strictly according to the CodeOuput schema.
+"""
+
+
 def create_reflection_agent():
+    use_structured = not is_free_openrouter_model("reflection")
     return create_agent(
         model=get_llm("reflection"),
         tools=[],
-        response_format=ReflectionOutput,
-        system_prompt=SYSTEM_PROMPT,
+        response_format=CodeOuput if use_structured else None,
+        system_prompt=REFLECT_CODE_SYSTEM_PROMPT,
     )
 
 
 def reflect_on_verification(
-    source_chunks: list[Document],
+    source_chunks: list[Document] | str,
     generated_code: CodeOuput,
     verification: VerificationResult,
-) -> ReflectionOutput:
-    """Preserved for backward compatibility."""
+) -> CodeOuput:
+    """Directly reflect on verification failures and return corrected CodeOuput."""
     if verification.valid:
-        return ReflectionOutput(
-            needs_revision=False,
-            feedback=[],
-            reasoning="Verification passed. No code revision required.",
-            corrected_code=None,
-        )
+        return generated_code
 
     agent = create_reflection_agent()
-    specifications = "\n\n".join(doc.page_content for doc in source_chunks)
+    if isinstance(source_chunks, str):
+        specifications = source_chunks
+    else:
+        specifications = "\n\n".join(
+            getattr(doc, "page_content", str(doc)) for doc in source_chunks
+        )
 
     result = agent.invoke(
         {
@@ -285,29 +335,29 @@ def reflect_on_verification(
                 {
                     "role": "user",
                     "content": f"""
-Original Hardware Specification:
+ORIGINAL HARDWARE SPECIFICATION (SOURCE OF TRUTH):
 {specifications}
 
-Generated Python Code:
+GENERATED VERILOG RTL CODE TO CORRECT:
 {generated_code.code}
 
-Component Name:
+MODULE NAME:
 {generated_code.component_name}
 
-Assumptions:
+CURRENT ASSUMPTIONS:
 {generated_code.assumptions}
 
-Verification Result:
+VERIFICATION ISSUES REPORT:
 {verification.model_dump_json(indent=2)}
 
-Analyze the verification issues and return the complete corrected code.
+Analyze each verification issue against the specification and return the complete, corrected synthesizable Verilog CodeOuput directly.
 """,
                 }
             ]
         }
     )
 
-    return result["structured_response"]
+    return _extract_code_output(result, default_module=generated_code.component_name or "APU_Core")
 
 
 def reflect_description(

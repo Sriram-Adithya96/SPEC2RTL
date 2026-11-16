@@ -717,7 +717,7 @@ def _component_ambiguities(
 
 def _signal_shape(signal: str) -> tuple[str, str | None]:
     match = re.fullmatch(
-        r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\[([0-9]+):([0-9]+)\])?\s*",
+        r"\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*\[([0-9]+):([0-9]+)\])?\s*",
         signal,
     )
     if not match:

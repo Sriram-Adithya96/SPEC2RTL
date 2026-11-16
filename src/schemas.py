@@ -137,6 +137,10 @@ class RTLReflectionOutput(BaseModel):
         default="",
         description="Detailed analysis of why revision is needed based strictly on the specification.",
     )
+    corrected_code: Optional[str] = Field(
+        default=None,
+        description="Complete corrected Verilog RTL code addressing all identified verification issues.",
+    )
 
 
 

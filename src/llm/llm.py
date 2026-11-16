@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.callbacks import BaseCallbackHandler
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 @dataclass(frozen=True)
@@ -194,6 +194,16 @@ class UsageCallbackHandler(BaseCallbackHandler):
 
 
 def is_free_openrouter_model(agent_name=None):
+    """Return whether the selected model for an agent is a free model."""
+    mode = os.getenv("SPEC2RTL_MODE", "free").strip().lower()
+
+    # Paid mode always uses the separately configured paid model.
+    if mode == "paid":
+        return False
+
+    if mode != "free":
+        return False
+
     agent_env_names = {
         "understanding": "SPEC2RTL_OPENROUTER_UNDERSTANDING_MODEL",
         "decomposer": "SPEC2RTL_OPENROUTER_DECOMPOSER_MODEL",
@@ -203,25 +213,25 @@ def is_free_openrouter_model(agent_name=None):
         "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MODEL",
         "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MODEL",
     }
+
     model_env_name = agent_env_names.get(agent_name)
     model = os.getenv(model_env_name, "").strip() if model_env_name else ""
+
     if not model:
         model = os.getenv(
             "SPEC2RTL_OPENROUTER_MODEL",
             "nvidia/nemotron-3-ultra-550b-a55b:free",
         ).strip()
+
     return model.endswith(":free")
 
 
 def get_llm(agent_name=None):
-    
-    api_key = os.getenv("SPEC2RTL_OPENROUTER_KEY")
-
-    if not api_key:
+    mode = os.getenv("SPEC2RTL_MODE", "free").strip().lower()
+    if mode not in ("free", "paid"):
         raise ValueError(
-            "SPEC2RTL_OPENROUTER_KEY is missing from your .env file."
+            "SPEC2RTL_MODE must be either 'free' or 'paid'."
         )
-
     agent_env_names = {
         "understanding": "SPEC2RTL_OPENROUTER_UNDERSTANDING_MODEL",
         "decomposer": "SPEC2RTL_OPENROUTER_DECOMPOSER_MODEL",
@@ -231,27 +241,39 @@ def get_llm(agent_name=None):
         "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MODEL",
         "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MODEL",
     }
-    model_env_name = agent_env_names.get(agent_name)
-    model = (
-        os.getenv(model_env_name, "").strip()
-        if model_env_name
-        else ""
-    )
-    if not model:
-        model = os.getenv(
-            "SPEC2RTL_OPENROUTER_MODEL",
-            "nvidia/nemotron-3-ultra-550b-a55b:free",
-        ).strip()
-
-    if not model:
-        raise ValueError(
-            "SPEC2RTL_OPENROUTER_MODEL must be a non-empty OpenRouter model id."
+    if mode == "paid":
+        api_key = os.getenv("SPEC2RTL_PAID_OPENROUTER_KEY", "").strip()
+        model = os.getenv("SPEC2RTL_PAID_OPENROUTER_MODEL", "").strip()
+        if not api_key:
+            raise ValueError(
+                "SPEC2RTL_PAID_OPENROUTER_KEY is missing from .env."
+            )
+        if not model:
+            raise ValueError(
+                "SPEC2RTL_PAID_OPENROUTER_MODEL is missing from .env."
+            )
+    else:
+        api_key = os.getenv("SPEC2RTL_OPENROUTER_KEY", "").strip()
+        if not api_key:
+            raise ValueError(
+                "SPEC2RTL_OPENROUTER_KEY is missing from .env."
+            )
+        model_env_name = agent_env_names.get(agent_name)
+        model = (
+            os.getenv(model_env_name, "").strip()
+            if model_env_name
+            else ""
         )
-    if not model.endswith(":free"):
-        raise ValueError(
-            "Only OpenRouter free models are allowed. "
-            f"Model '{model}' is not a free model because it does not end with ':free'."
-        )
+        if not model:
+            model = os.getenv(
+                "SPEC2RTL_OPENROUTER_MODEL",
+                "nvidia/nemotron-3-ultra-550b-a55b:free",
+            ).strip()
+        if not model.endswith(":free"):
+            raise ValueError(
+                "Free mode only allows OpenRouter models ending in ':free'. "
+                f"Received: {model}"
+            )
     agent_max_tokens_names = {
         "understanding": "SPEC2RTL_OPENROUTER_UNDERSTANDING_MAX_TOKENS",
         "decomposer": "SPEC2RTL_OPENROUTER_DECOMPOSER_MAX_TOKENS",
@@ -321,6 +343,8 @@ def get_llm(agent_name=None):
     }
     if model.endswith(":free"):
         llm_kwargs["reasoning"] = {"effort": "none"}
+    elif mode == "paid":
+        llm_kwargs["reasoning"] = {"enabled": False}
     return ChatOpenAI(
         **llm_kwargs,
     )

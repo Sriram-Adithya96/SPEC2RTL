@@ -18,6 +18,7 @@ from src.agents.understanding import understand_specification
 from src.agents.verification import verify_rtl
 from src.experimental_rtl_generation import run_experimental_rtl_generation
 from src.ingestion import ingest_spec
+from src.llm.llm import UsageTracker, usage_scope
 AGENT_ORDER = [
     "understanding",
     "decomposer",
@@ -665,6 +666,7 @@ def run_pipeline(
         "status": "not_attempted",
         "errors": [],
     }
+    usage_tracker = UsageTracker()
 
     def fail(error: Exception):
         if stage in {"pseudocode", "rtl_generation"}:
@@ -756,7 +758,8 @@ def run_pipeline(
             status="running",
             message="Extracting requirements from the specification",
         )
-        understanding_result = understand_specification(docs)
+        with usage_scope(usage_tracker, "understanding"):
+            understanding_result = understand_specification(docs)
         print_stage("UNDERSTANDING AGENT OUTPUT", understanding_result)
         save_json(output_dir, "understanding.json", understanding_result.model_dump())
         artifact_paths["understanding"] = "understanding.json"
@@ -776,7 +779,8 @@ def run_pipeline(
             status="running",
             message="Decomposing the design into components",
         )
-        decomposition_result = decomposer(understanding_result)
+        with usage_scope(usage_tracker, "decomposer"):
+            decomposition_result = decomposer(understanding_result)
         print_stage("DECOMPOSER AGENT OUTPUT", decomposition_result)
         save_json(output_dir, "decomposition.json", decomposition_result.model_dump())
         artifact_paths["decomposition"] = "decomposition.json"
@@ -815,7 +819,10 @@ def run_pipeline(
                 message=f"Describing {component.name} ({index} of {total})",
                 components=list(component_state),
             )
-            description = describe_component(component, spec_context=specification)
+            with usage_scope(
+                usage_tracker, "description", component_name=component.name
+            ):
+                description = describe_component(component, spec_context=specification)
             description_results.append(description)
             print_stage(f"DESCRIPTION: {component.name}", description)
             component_state[index - 1]["status"] = "completed"
@@ -855,13 +862,14 @@ def run_pipeline(
             status="running",
             message="Generating pseudocode",
         )
-        pseudocode_result = generate_pseudocode(
-            specification=specification,
-            decomposition=decomposition_result,
-            descriptions=description_results,
-            understanding=understanding_result,
-            raw_output_dir=output_dir,
-        )
+        with usage_scope(usage_tracker, "pseudocode"):
+            pseudocode_result = generate_pseudocode(
+                specification=specification,
+                decomposition=decomposition_result,
+                descriptions=description_results,
+                understanding=understanding_result,
+                raw_output_dir=output_dir,
+            )
         print_stage("PSEUDOCODE GENERATION OUTPUT", pseudocode_result)
         save_json(output_dir, "pseudocode.json", pseudocode_result.model_dump())
         artifact_paths["pseudocode"] = "pseudocode.json"
@@ -944,28 +952,29 @@ def run_pipeline(
             status="running",
             message="Generating Verilog RTL from pseudocode",
         )
-        (
-            rtl_output,
-            rtl_result,
-            direct_rtl_result,
-            component_state,
-            compilation_result,
-            rtl_agent_success,
-        ) = _execute_rtl_generation_stage(
-            specification=specification,
-            spec_path=spec_path,
-            output_dir=output_dir,
-            decomposition_result=decomposition_result,
-            understanding_result=understanding_result,
-            description_results=description_results,
-            pseudocode_result=pseudocode_result,
-            strict_validation=strict_validation,
-            stage_statuses=stage_statuses,
-            artifact_paths=artifact_paths,
-            progress_callback=progress_callback,
-            reflection_feedback=None,
-            attempt_num=0,
-        )
+        with usage_scope(usage_tracker, "rtl_generation"):
+            (
+                rtl_output,
+                rtl_result,
+                direct_rtl_result,
+                component_state,
+                compilation_result,
+                rtl_agent_success,
+            ) = _execute_rtl_generation_stage(
+                specification=specification,
+                spec_path=spec_path,
+                output_dir=output_dir,
+                decomposition_result=decomposition_result,
+                understanding_result=understanding_result,
+                description_results=description_results,
+                pseudocode_result=pseudocode_result,
+                strict_validation=strict_validation,
+                stage_statuses=stage_statuses,
+                artifact_paths=artifact_paths,
+                progress_callback=progress_callback,
+                reflection_feedback=None,
+                attempt_num=0,
+            )
 
         # 6. RTL Verification Agent
         stage = "rtl_verification"
@@ -977,14 +986,15 @@ def run_pipeline(
             message="Verifying generated RTL against the original specification",
         )
 
-        rtl_verification_result = verify_rtl(
-            source_chunks=parent_chunks,
-            generated_rtl=rtl_output,
-            understanding=understanding_result,
-            decomposition=decomposition_result,
-            descriptions=description_results,
-            pseudocode=pseudocode_result,
-        )
+        with usage_scope(usage_tracker, "rtl_verification"):
+            rtl_verification_result = verify_rtl(
+                source_chunks=parent_chunks,
+                generated_rtl=rtl_output,
+                understanding=understanding_result,
+                decomposition=decomposition_result,
+                descriptions=description_results,
+                pseudocode=pseudocode_result,
+            )
 
         print_stage("RTL VERIFICATION OUTPUT", rtl_verification_result)
         save_json(
@@ -1015,15 +1025,16 @@ def run_pipeline(
                 message=f"Reflecting on RTL verification issues (attempt {regeneration_attempts}/{max_regeneration_attempts})",
             )
 
-            reflection_result = reflect_on_rtl(
-                source_chunks=parent_chunks,
-                generated_rtl=rtl_output,
-                verification=rtl_verification_result,
-                understanding=understanding_result,
-                decomposition=decomposition_result,
-                descriptions=description_results,
-                pseudocode=pseudocode_result,
-            )
+            with usage_scope(usage_tracker, "reflection"):
+                reflection_result = reflect_on_rtl(
+                    source_chunks=parent_chunks,
+                    generated_rtl=rtl_output,
+                    verification=rtl_verification_result,
+                    understanding=understanding_result,
+                    decomposition=decomposition_result,
+                    descriptions=description_results,
+                    pseudocode=pseudocode_result,
+                )
 
             print_stage(f"REFLECTION OUTPUT (ATTEMPT {regeneration_attempts})", reflection_result)
             save_json(output_dir, f"reflection_attempt_{regeneration_attempts}.json", reflection_result.model_dump())
@@ -1059,28 +1070,29 @@ def run_pipeline(
                 status="running",
                 message=f"Regenerating RTL with reflection feedback (attempt {regeneration_attempts}/{max_regeneration_attempts})",
             )
-            (
-                rtl_output,
-                rtl_result,
-                direct_rtl_result,
-                component_state,
-                compilation_result,
-                rtl_agent_success,
-            ) = _execute_rtl_generation_stage(
-                specification=specification,
-                spec_path=spec_path,
-                output_dir=output_dir,
-                decomposition_result=decomposition_result,
-                understanding_result=understanding_result,
-                description_results=description_results,
-                pseudocode_result=pseudocode_result,
-                strict_validation=strict_validation,
-                stage_statuses=stage_statuses,
-                artifact_paths=artifact_paths,
-                progress_callback=progress_callback,
-                reflection_feedback=reflection_result,
-                attempt_num=regeneration_attempts,
-            )
+            with usage_scope(usage_tracker, "rtl_generation"):
+                (
+                    rtl_output,
+                    rtl_result,
+                    direct_rtl_result,
+                    component_state,
+                    compilation_result,
+                    rtl_agent_success,
+                ) = _execute_rtl_generation_stage(
+                    specification=specification,
+                    spec_path=spec_path,
+                    output_dir=output_dir,
+                    decomposition_result=decomposition_result,
+                    understanding_result=understanding_result,
+                    description_results=description_results,
+                    pseudocode_result=pseudocode_result,
+                    strict_validation=strict_validation,
+                    stage_statuses=stage_statuses,
+                    artifact_paths=artifact_paths,
+                    progress_callback=progress_callback,
+                    reflection_feedback=reflection_result,
+                    attempt_num=regeneration_attempts,
+                )
 
             # 9. RTL Verification Agent verifies the regenerated RTL
             stage = "rtl_verification"
@@ -1090,14 +1102,15 @@ def run_pipeline(
                 status="running",
                 message=f"Verifying regenerated RTL against original specification (attempt {regeneration_attempts}/{max_regeneration_attempts})",
             )
-            rtl_verification_result = verify_rtl(
-                source_chunks=parent_chunks,
-                generated_rtl=rtl_output,
-                understanding=understanding_result,
-                decomposition=decomposition_result,
-                descriptions=description_results,
-                pseudocode=pseudocode_result,
-            )
+            with usage_scope(usage_tracker, "rtl_verification"):
+                rtl_verification_result = verify_rtl(
+                    source_chunks=parent_chunks,
+                    generated_rtl=rtl_output,
+                    understanding=understanding_result,
+                    decomposition=decomposition_result,
+                    descriptions=description_results,
+                    pseudocode=pseudocode_result,
+                )
             print_stage(f"RE-VERIFICATION OUTPUT (ATTEMPT {regeneration_attempts})", rtl_verification_result)
             save_json(output_dir, f"rtl_verification_attempt_{regeneration_attempts}.json", rtl_verification_result.model_dump())
             save_json(output_dir, "rtl_verification.json", rtl_verification_result.model_dump())

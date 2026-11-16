@@ -6,6 +6,7 @@ __pycache__/
 tests/
 !tests/
 tests/*
+!tests/test_token_usage.py
 !tests/test_experimental_rtl_generation.py
 !tests/test_rtl_interface_validation.py
 !tests/test_revalidate_experimental_rtl.py

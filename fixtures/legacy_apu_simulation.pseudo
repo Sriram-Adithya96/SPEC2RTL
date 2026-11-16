@@ -1,0 +1,52 @@
+// LEGACY SIMULATOR INPUT: intentionally uses the converter's pre-Grammar-V1 dialect.
+REG operand_a_reg[31:0]
+REG operand_b_reg[31:0]
+REG opcode_reg[3:0]
+REG result_reg[31:0]
+REG busy_reg
+REG valid_reg
+REG error_reg
+
+FUNCTION alu_compute(a[31:0], b[31:0], op[3:0]) -> (out[31:0], err):
+  CASE op:
+    4'b0000: out = (a + b) MOD 2^32; err = 0
+    4'b0001: out = (a - b) MOD 2^32; err = 0
+    4'b0010: out = a AND b; err = 0
+    4'b0011: out = a OR b; err = 0
+    4'b0100: out = a XOR b; err = 0
+    4'b0101: out = a << b[4:0]; err = 0
+    4'b0110: out = a >> b[4:0]; err = 0
+    DEFAULT: out = 32'b0; err = 1
+  END CASE
+  RETURN (out, err)
+END FUNCTION
+
+ON RISING EDGE OF clk
+  IF rst_n == 0 THEN
+    operand_a_reg = 32'b0
+    operand_b_reg = 32'b0
+    opcode_reg = 4'b0
+    result_reg = 32'b0
+    busy_reg = 1'b0
+    valid_reg = 1'b0
+    error_reg = 1'b0
+  ELSE
+    valid_reg = 1'b0
+    error_reg = 1'b0
+    IF busy_reg == 1 THEN
+      (result_reg, error_reg) = alu_compute(operand_a_reg, operand_b_reg, opcode_reg)
+      valid_reg = 1'b1
+      busy_reg = 1'b0
+    ELSE IF start == 1 THEN
+      operand_a_reg = operand_a
+      operand_b_reg = operand_b
+      opcode_reg = opcode
+      busy_reg = 1'b1
+    END IF
+  END IF
+END ON
+
+result = result_reg
+valid = valid_reg
+busy = busy_reg
+error = error_reg

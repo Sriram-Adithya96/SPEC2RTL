@@ -12,6 +12,8 @@ def is_free_openrouter_model(agent_name=None):
         "description": "SPEC2RTL_OPENROUTER_DESCRIPTION_MODEL",
         "verification": "SPEC2RTL_OPENROUTER_VERIFICATION_MODEL",
         "pseudocode": "SPEC2RTL_OPENROUTER_PSEUDOCODE_MODEL",
+        "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MODEL",
+        "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MODEL",
     }
     model_env_name = agent_env_names.get(agent_name)
     model = os.getenv(model_env_name, "").strip() if model_env_name else ""
@@ -38,6 +40,8 @@ def get_llm(agent_name=None):
         "description": "SPEC2RTL_OPENROUTER_DESCRIPTION_MODEL",
         "verification": "SPEC2RTL_OPENROUTER_VERIFICATION_MODEL",
         "pseudocode": "SPEC2RTL_OPENROUTER_PSEUDOCODE_MODEL",
+        "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MODEL",
+        "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MODEL",
     }
     model_env_name = agent_env_names.get(agent_name)
     model = (
@@ -61,9 +65,13 @@ def get_llm(agent_name=None):
             f"Model '{model}' is not a free model because it does not end with ':free'."
         )
     agent_max_tokens_names = {
+        "understanding": "SPEC2RTL_OPENROUTER_UNDERSTANDING_MAX_TOKENS",
         "decomposer": "SPEC2RTL_OPENROUTER_DECOMPOSER_MAX_TOKENS",
         "description": "SPEC2RTL_OPENROUTER_DESCRIPTION_MAX_TOKENS",
+        "verification": "SPEC2RTL_OPENROUTER_VERIFICATION_MAX_TOKENS",
         "pseudocode": "SPEC2RTL_OPENROUTER_PSEUDOCODE_MAX_TOKENS",
+        "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MAX_TOKENS",
+        "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MAX_TOKENS",
     }
     max_tokens_env_name = agent_max_tokens_names.get(agent_name)
     max_tokens_value = (
@@ -86,18 +94,44 @@ def get_llm(agent_name=None):
         raise ValueError(
             "SPEC2RTL_OPENROUTER_MAX_TOKENS must be a positive integer."
         )
-    print("Using model:", model)
+    agent_tag = f"[{agent_name.upper()}] " if agent_name else ""
+    print(f"{agent_tag}Using model: {model}")
+
+    timeout_str = (
+        os.getenv("SPEC2RTL_OPENROUTER_TIMEOUT")
+        or os.getenv("SPEC2RTL_LLM_TIMEOUT")
+        or "120"
+    ).strip()
+    try:
+        timeout = float(timeout_str)
+        if timeout <= 0:
+            timeout = 120.0
+    except ValueError:
+        timeout = 120.0
+
+    retries_str = (
+        os.getenv("SPEC2RTL_OPENROUTER_MAX_RETRIES")
+        or os.getenv("SPEC2RTL_LLM_MAX_RETRIES")
+        or "2"
+    ).strip()
+    try:
+        max_retries = int(retries_str)
+        if max_retries < 0 or max_retries > 2:
+            max_retries = 2
+    except ValueError:
+        max_retries = 2
+
     llm_kwargs = {
         "model": model,
         "api_key": api_key,
         "base_url": "https://openrouter.ai/api/v1",
         "temperature": 0,
         "max_tokens": max_tokens,
-        "max_retries": 0,
+        "request_timeout": timeout,
+        "max_retries": max_retries,
     }
     if model.endswith(":free"):
-        if agent_name in {"decomposer", "description"}:
-            llm_kwargs["reasoning"] = {"effort": "none"}
+        llm_kwargs["reasoning"] = {"effort": "none"}
     return ChatOpenAI(
         **llm_kwargs,
     )

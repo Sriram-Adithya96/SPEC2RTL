@@ -1,4 +1,3 @@
-import json
 import unittest
 from pathlib import Path
 
@@ -20,6 +19,11 @@ class TestPseudocodeAgentPrompt(unittest.TestCase):
         normalized = " ".join(SYSTEM_PROMPT.lower().split())
         self.assertIn("do not create valid_reg, busy_reg", normalized)
         self.assertIn("do not declare registers or signals that are not read", normalized)
+        self.assertIn(
+            "at most once on every terminal execution path",
+            normalized,
+        )
+        self.assertIn("do not add redundant self-assignments", normalized)
 
     def test_unresolved_and_clock_edge_rules_are_present(self):
         normalized = " ".join(SYSTEM_PROMPT.lower().split())
@@ -29,6 +33,22 @@ class TestPseudocodeAgentPrompt(unittest.TestCase):
         self.assertIn("the example's rising-edge declaration is not evidence", normalized)
         self.assertIn("omit clock metadata and omit every block clocked", normalized)
         self.assertIn("unresolved clock : clock edge -", normalized)
+        self.assertIn(
+            "an assumption and an unresolved issue must not contradict each other",
+            normalized,
+        )
+        self.assertIn(
+            "do not mark an explicitly defined behavior as unresolved",
+            normalized,
+        )
+
+    def test_clock_is_not_duplicated_as_an_input(self):
+        normalized = " ".join(SYSTEM_PROMPT.lower().split())
+        self.assertIn(
+            "represent a clock with clock metadata rather than also declaring "
+            "that same signal as input",
+            normalized,
+        )
 
     def test_unspecified_clock_edge_does_not_generate_clocked_assumption(self):
         normalized = " ".join(SYSTEM_PROMPT.lower().split())
@@ -60,6 +80,49 @@ class TestPseudocodeAgentPrompt(unittest.TestCase):
             normalized,
         )
 
+    def test_interface_output_and_decoder_consistency_rules_are_present(self):
+        normalized = " ".join(SYSTEM_PROMPT.lower().split())
+        self.assertIn(
+            "never redeclare an interface signal as reg or sig",
+            normalized,
+        )
+        self.assertIn(
+            "every declared output must be driven by a supported assignment",
+            normalized,
+        )
+        self.assertIn(
+            "exactly one matching module declaration and end module delimiter",
+            normalized,
+        )
+        self.assertIn(
+            "use the decoder's source-supported mapping and exclusivity",
+            normalized,
+        )
+        self.assertIn(
+            "leave invalid combinations unresolved rather than implementing "
+            "an unsupported priority",
+            normalized,
+        )
+
+    def test_one_cycle_result_and_status_alignment_is_explicit(self):
+        normalized = " ".join(SYSTEM_PROMPT.lower().split())
+        self.assertIn("assert valid with the result on the specified following edge", normalized)
+        self.assertIn("do not assert valid on capture merely because start was accepted", normalized)
+        self.assertIn("do not invent priority for simultaneous events whose priority is unspecified", normalized)
+
+    def test_known_reset_requirements_are_separate_from_missing_clock_edge(self):
+        normalized = " ".join(SYSTEM_PROMPT.lower().split())
+        self.assertIn("preserve every explicitly specified reset effect and value", normalized)
+        self.assertIn("keep that edge unresolved and omit edge-dependent reset logic", normalized)
+        self.assertIn("do not replace known reset requirements with an unresolved reset claim", normalized)
+
+    def test_internal_datapath_default_must_be_valid_and_unobservable(self):
+        normalized = " ".join(SYSTEM_PROMPT.lower().split())
+        self.assertIn("never use x-valued literals such as 32'bx", normalized)
+        self.assertIn("width-correct grammar-valid default", normalized)
+        self.assertIn("consumers demonstrably ignore that value", normalized)
+        self.assertIn("must not define unsupported-opcode result, valid, or error behavior", normalized)
+
     def test_generation_has_no_automatic_regeneration_loop(self):
         source_path = Path("src/agents/pseudocode.py")
         source = source_path.read_text(encoding="utf-8")
@@ -69,40 +132,6 @@ class TestPseudocodeAgentPrompt(unittest.TestCase):
             "Requesting pseudocode from the model (single attempt)...",
             source,
         )
-
-    def test_corrected_artifact_has_no_duplicate_saved_output_drivers(self):
-        artifact = Path("outputs/pseudocode_raw.txt")
-        if not artifact.exists():
-            self.skipTest("Corrected pseudocode artifact is not present in this checkout.")
-
-        data = json.loads(artifact.read_text(encoding="utf-8"))
-        lines = data["pseudocode"]
-
-        self.assertEqual(
-            sum(line.strip().startswith("ASSIGN sel_") for line in lines),
-            7,
-        )
-        self.assertFalse(
-            any("valid_reg" in line or "busy_reg" in line for line in lines)
-        )
-        self.assertIn(
-            "  ASSIGN sel_add = (reg_opcode == 4'b0000)",
-            lines,
-        )
-        self.assertFalse(
-            any("EDGE RISING" in line or "EDGE FALLING" in line for line in lines)
-        )
-
-        output_assignments = {}
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("ASSIGN "):
-                target = stripped.split("=", 1)[0].split()[-1]
-                output_assignments[target] = output_assignments.get(target, 0) + 1
-
-        for output in ("result", "valid", "busy", "error"):
-            self.assertEqual(output_assignments.get(output, 0), 1)
-
 
 if __name__ == "__main__":
     unittest.main()

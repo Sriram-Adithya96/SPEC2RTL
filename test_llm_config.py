@@ -1,3 +1,4 @@
+
 import os
 import unittest
 from unittest.mock import patch
@@ -17,6 +18,7 @@ MODEL_VARS = [
 
 
 class TestOpenRouterFreeModelConfiguration(unittest.TestCase):
+
     def setUp(self):
         self.env_patch = patch.dict(
             os.environ,
@@ -27,6 +29,7 @@ class TestOpenRouterFreeModelConfiguration(unittest.TestCase):
             clear=False,
         )
         self.env_patch.start()
+
         for name in MODEL_VARS[1:]:
             os.environ.pop(name, None)
 
@@ -68,6 +71,26 @@ class TestOpenRouterFreeModelConfiguration(unittest.TestCase):
         get_llm()
 
         self.assertEqual(chat_openai.call_args.kwargs["max_retries"], 0)
+
+    @patch("src.llm.llm.ChatOpenAI")
+    def test_reasoning_is_disabled_for_all_free_model_agents(self, chat_openai):
+        agents = [
+            "understanding",
+            "decomposer",
+            "description",
+            "verification",
+            "pseudocode",
+        ]
+
+        for agent in agents:
+            get_llm(agent)
+
+            kwargs = chat_openai.call_args.kwargs
+            self.assertEqual(
+                kwargs.get("reasoning"),
+                {"effort": "none"},
+                f"Reasoning should be disabled for {agent}",
+            )
 
 
 if __name__ == "__main__":

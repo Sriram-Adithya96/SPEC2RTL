@@ -1,29 +1,58 @@
-from pydantic import BaseModel 
-from typing import List, Optional, Dict 
-
-
-
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 class Understanding(BaseModel):
-    system_purpose: str
-    major_components: List[str] 
-    inputs: List[str]
-    outputs: List[str]
-    functional_requirements: List[str]
-    constraints: List[str]
-    ambiguities: List[str]
 
+    system_purpose: str = Field(
+        description="Concise description of the hardware system's purpose."
+    )
 
+    major_components: List[str] = Field(
+        description=(
+            "Explicitly named components and meaningful functional groupings "
+            "supported by the specification. Do not invent physical modules."
+        )
+    )
 
+    inputs: List[str] = Field(
+        description=(
+            "All explicitly defined input signals and interfaces, "
+            "preserving exact names, widths and stated behavior."
+        )
+    )
 
-from pydantic import BaseModel
-from typing import List
+    outputs: List[str] = Field(
+        description=(
+            "All explicitly defined output signals and interfaces, "
+            "preserving exact names, widths and stated behavior."
+        )
+    )
+
+    functional_requirements: List[str] = Field(
+        description=(
+            "All explicitly stated functional behaviors, including "
+            "operations, opcode mappings, reset behavior, error handling "
+            "and timing-dependent behavior."
+        )
+    )
+
+    constraints: List[str] = Field(
+        description=(
+            "All explicitly stated clock, timing, reset, synchronization, "
+            "resource, performance and implementation constraints."
+        )
+    )
+
+    ambiguities: List[str] = Field(
+        description=(
+            "Explicit contradictions, unclear requirements and missing "
+            "information necessary to understand specified behavior."
+        )
+    )
 
 
 # -------------------------
 # Specification
 # -------------------------
-
-
 class Component(BaseModel):
     name: str
     purpose: str
@@ -78,6 +107,38 @@ class VerificationResult(BaseModel):
     reasoning: str
 
 
+class CodeOuput(BaseModel):
+    component_name: str = ""
+    code: str = ""
+    assumptions: List[str] = Field(default_factory=list)
+
+
+class ReflectionOutput(BaseModel):
+    needs_revision: bool = False
+    feedback: List[str] = Field(default_factory=list)
+    reasoning: str = ""
+    corrected_code: Optional[Any] = None
+
+
+class RTLReflectionOutput(BaseModel):
+    needs_revision: bool = Field(
+        default=False,
+        description="Whether the generated RTL requires revision based on verification issues.",
+    )
+    feedback: List[str] = Field(
+        default_factory=list,
+        description="Actionable, specific correction instructions for the RTL generation agent.",
+    )
+    component_feedback: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Actionable correction instructions mapped by component or module name.",
+    )
+    reasoning: str = Field(
+        default="",
+        description="Detailed analysis of why revision is needed based strictly on the specification.",
+    )
+
+
 
 class DescriptionRevisionInput(BaseModel):
     description: DescriptionOutput
@@ -89,11 +150,56 @@ class ImplementationPlan(BaseModel):
     objective: str
     steps: List[ImplementationStep]
 
-class PseudocodeGenerationOutput(BaseModel):
+class ComponentPseudocodeOutput(BaseModel):
+    component_name: str
     module_name: str
-    objective: str
     inputs: List[str]
     outputs: List[str]
     pseudocode: List[str]
     assumptions: List[str]
     unresolved_issues: List[str]
+    generation_status: str = "completed"
+    validation_status: str = "not_run"
+    validation_issues: List[dict] = Field(default_factory=list)
+
+
+class PseudocodeGenerationOutput(BaseModel):
+    components: List[ComponentPseudocodeOutput]
+    assumptions: List[str] = Field(default_factory=list)
+    unresolved_issues: List[str] = Field(default_factory=list)
+    generation_status: str = "completed"
+    validation_status: str = "not_run"
+    validation_issues: List[dict] = Field(default_factory=list)
+    execution_status: str = "not_attempted"
+    execution_output: str = "No execution has been attempted."
+    execution_errors: List[str] = Field(default_factory=list)
+
+
+class ComponentRTLModuleOutput(BaseModel):
+    component_name: str
+    module_name: str
+    inputs: List[str]
+    outputs: List[str]
+    rtl_code: str = ""
+    generation_status: str = "not_run"
+    generation_error: Optional[str] = None
+
+
+class ComponentRTLInstanceOutput(BaseModel):
+    component_name: str
+    module_name: str
+    instance_name: str
+    port_connections: Dict[str, str] = Field(default_factory=dict)
+
+
+class RTLGenerationOutput(BaseModel):
+    module_name: str = "system_top"
+    language: str = "Verilog"
+    rtl_code: str = ""
+    component_modules: List[ComponentRTLModuleOutput] = Field(default_factory=list)
+    component_instances: List[ComponentRTLInstanceOutput] = Field(default_factory=list)
+    interactions: List[str] = Field(default_factory=list)
+    generation_status: str = "not_run"
+    generation_issues: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+    unresolved_issues: List[str] = Field(default_factory=list)

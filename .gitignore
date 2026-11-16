@@ -4,6 +4,13 @@ SPEC2RTL/PRISM_Pitch_Script.docx
 __pycache__/
 *.docx
 tests/
+!tests/
+tests/*
+!tests/test_experimental_rtl_generation.py
+!tests/test_rtl_interface_validation.py
+!tests/test_revalidate_experimental_rtl.py
+!tests/test_generic_top_level_integration.py
+!tests/test_rtl_reflection_pipeline.py
 Spec2RTL-Agent-README.md
 .history/
 outputs/

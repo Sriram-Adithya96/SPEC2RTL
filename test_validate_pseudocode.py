@@ -28,6 +28,7 @@ def counter_v1():
         "      count_reg <= count_reg + 8'b00000001",
         "    END IF",
         "  END IF",
+        "  END RESET",
         "END BLOCK",
         "END MODULE",
     ]
@@ -75,6 +76,7 @@ def fsm_v1():
         "        busy_reg <= 0",
         "    END CASE",
         "  END IF",
+        "  END RESET",
         "END BLOCK",
         "END MODULE",
     ]
@@ -246,6 +248,15 @@ class TestValidatorGrammarV1(unittest.TestCase):
         result = validate_pseudocode_detailed(code)
         codes = {issue.code for issue in result.issues}
         self.assertIn("DUPLICATE_DECLARATION", codes)
+
+    def test_output_port_cannot_be_redeclared_as_a_register(self):
+        code = counter_v1()
+        code.insert(code.index("REG count_reg[7:0]"), "REG count[7:0]")
+        result = validate_pseudocode_detailed(code)
+        self.assertIn(
+            "DUPLICATE_DECLARATION",
+            {issue.code for issue in result.issues},
+        )
 
     def test_internal_clock_interface_is_rejected(self):
         code = counter_v1()
@@ -590,6 +601,61 @@ class TestValidatorGrammarV1(unittest.TestCase):
         })
         self.assertNotIn("MULTIPLE_CLOCKED_ASSIGNMENTS", {issue.code for issue in result.issues})
 
+    def _clocked_assignment_codes(self, body_lines):
+        code = [
+            "MODULE demo",
+            "CLOCK clk EDGE RISING",
+            "INPUT rst",
+            "INPUT a",
+            "INPUT b",
+            "REG q",
+            "BLOCK CLOCKED CLOCK clk EDGE RISING",
+            *body_lines,
+            "END BLOCK",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(code)
+        return {issue.code for issue in result.issues}
+
+    def test_reset_and_normal_assignments_are_separate_paths(self):
+        codes = self._clocked_assignment_codes([
+            "  RESET SYNCHRONOUS SIGNAL rst ACTIVE_HIGH VALUE 0",
+            "    q <= 0",
+            "  END RESET",
+            "  q <= 1",
+        ])
+        self.assertNotIn("MULTIPLE_CLOCKED_ASSIGNMENTS", codes)
+
+    def test_independent_clocked_ifs_can_assign_same_register_twice(self):
+        codes = self._clocked_assignment_codes([
+            "  IF a == 1 THEN",
+            "    q <= 1",
+            "  END IF",
+            "  IF b == 1 THEN",
+            "    q <= 0",
+            "  END IF",
+        ])
+        self.assertIn("MULTIPLE_CLOCKED_ASSIGNMENTS", codes)
+
+    def test_clocked_if_else_assignments_are_mutually_exclusive(self):
+        codes = self._clocked_assignment_codes([
+            "  IF a == 1 THEN",
+            "    q <= 1",
+            "  ELSE",
+            "    q <= 0",
+            "  END IF",
+        ])
+        self.assertNotIn("MULTIPLE_CLOCKED_ASSIGNMENTS", codes)
+
+    def test_duplicate_assignments_inside_reset_are_rejected(self):
+        codes = self._clocked_assignment_codes([
+            "  RESET SYNCHRONOUS SIGNAL rst ACTIVE_HIGH VALUE 0",
+            "    q <= 0",
+            "    q <= 1",
+            "  END RESET",
+        ])
+        self.assertIn("MULTIPLE_CLOCKED_ASSIGNMENTS", codes)
+
     def test_cdc_requires_specification_or_understanding_evidence(self):
         code = counter_v1() + [
             "CLOCK dst_clk EDGE RISING",
@@ -612,6 +678,30 @@ class TestValidatorGrammarV1(unittest.TestCase):
         )
         self.assertNotIn("INTERFACE_UNSUPPORTED_BY_SPECIFICATION", {issue.code for issue in result.issues})
 
+    def test_unknown_value_literal_is_rejected_but_grammar_valid_default_passes(self):
+        prefix = [
+            "MODULE datapath",
+            "OUTPUT result[31:0]",
+            "BLOCK COMBINATIONAL",
+        ]
+        suffix = ["END BLOCK", "END MODULE"]
+
+        invalid = validate_pseudocode_detailed(
+            [*prefix, "  ASSIGN result = 32'bx", *suffix]
+        )
+        valid = validate_pseudocode_detailed(
+            [*prefix, "  ASSIGN result = 32'b0", *suffix]
+        )
+
+        self.assertIn(
+            "INVALID_LITERAL_SYNTAX",
+            {issue.code for issue in invalid.issues},
+        )
+        self.assertNotIn(
+            "INVALID_LITERAL_SYNTAX",
+            {issue.code for issue in valid.issues},
+        )
+
     def test_ambiguity_must_match_relevant_unresolved(self):
         code = counter_v1() + [
             "UNRESOLVED TIMING : latency - clock latency unspecified"
@@ -630,6 +720,271 @@ class TestValidatorGrammarV1(unittest.TestCase):
         code.remove("      SET err = 1'b0")
         result = validate_pseudocode_detailed(code)
         self.assertIn("FUNCTION_RETURN_PATH_INCOMPLETE", {issue.code for issue in result.issues})
+
+    def test_component_scope_accepts_clock_metadata_as_an_input_port(self):
+        result = validate_pseudocode_detailed(
+            counter_v1(),
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "ambiguities": [],
+            },
+        )
+        self.assertNotIn(
+            "COMPONENT_INTERFACE_MISMATCH",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_component_scope_rejects_mismatched_component_interface(self):
+        code = counter_v1()
+        code[3] = "INPUT start"
+        result = validate_pseudocode_detailed(
+            code,
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "ambiguities": [],
+            },
+        )
+        self.assertIn(
+            "COMPONENT_INTERFACE_MISMATCH",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_component_scope_requires_each_output_to_be_implemented(self):
+        code = [
+            "MODULE passthrough",
+            "INPUT source",
+            "OUTPUT result",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            component_scope={
+                "inputs": ["source"],
+                "outputs": ["result"],
+            },
+        )
+        self.assertIn(
+            "COMPONENT_OUTPUT_UNIMPLEMENTED",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_component_scope_requires_clocked_logic_for_sequential_component(self):
+        code = [
+            "MODULE capture",
+            "INPUT clk",
+            "OUTPUT captured",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            component_scope={
+                "inputs": ["clk"],
+                "outputs": ["captured"],
+                "requires_clocked_logic": True,
+            },
+        )
+        self.assertIn(
+            "COMPONENT_CLOCKED_LOGIC_MISSING",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_component_scope_rejects_assumption_conflicting_with_unresolved(self):
+        result = validate_pseudocode_detailed(
+            counter_v1(),
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "assumptions": [
+                    "Clock edge assumed rising for synchronous logic"
+                ],
+                "unresolved_issues": [
+                    "Clock edge is unresolved because rising or falling "
+                    "edge is not specified"
+                ],
+            },
+        )
+        self.assertIn(
+            "ASSUMPTION_UNRESOLVED_CONTRADICTION",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_capture_hold_and_unspecified_reset_value_are_compatible(self):
+        result = validate_pseudocode_detailed(
+            counter_v1(),
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "assumptions": [
+                    "Captured operand and opcode registers hold their values "
+                    "until next capture event; no reset value specified for "
+                    "these registers"
+                ],
+                "unresolved_issues": [
+                    "Reset values for captured_a_reg, captured_b_reg, and "
+                    "captured_opcode_reg are not specified"
+                ],
+            },
+        )
+        self.assertNotIn(
+            "ASSUMPTION_UNRESOLVED_CONTRADICTION",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_valid_opcode_exclusivity_and_invalid_select_case_are_compatible(self):
+        result = validate_pseudocode_detailed(
+            counter_v1(),
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "assumptions": [
+                    "op_shl and op_shr are mutually exclusive per valid opcode "
+                    "from the decoder"
+                ],
+                "unresolved_issues": [
+                    "Behavior when op_shl and op_shr are asserted simultaneously "
+                    "for invalid select combinations is undefined"
+                ],
+            },
+        )
+        self.assertNotIn(
+            "ASSUMPTION_UNRESOLVED_CONTRADICTION",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_explicitly_contradictory_claims_remain_rejected(self):
+        result = validate_pseudocode_detailed(
+            counter_v1(),
+            component_scope={
+                "inputs": ["clk", "rst_n", "enable"],
+                "outputs": ["count[7:0]"],
+                "assumptions": [
+                    "op_shl and op_shr are mutually exclusive for every opcode, "
+                    "including invalid opcode values"
+                ],
+                "unresolved_issues": [
+                    "For valid opcodes, op_shl and op_shr may both be asserted "
+                    "simultaneously"
+                ],
+            },
+        )
+        self.assertIn(
+            "ASSUMPTION_UNRESOLVED_CONTRADICTION",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_specified_reset_facts_do_not_become_reset_unresolved(self):
+        code = [
+            "MODULE reset_outputs",
+            "INPUT clk",
+            "INPUT rst_n",
+            "OUTPUT result[31:0]",
+            "OUTPUT valid",
+            "OUTPUT busy",
+            "OUTPUT error",
+            "UNRESOLVED CLOCK : clock edge - rising versus falling edge is not specified",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            specification=(
+                "When rst_n is asserted low, result shall be set to 32'b0, "
+                "valid shall be set to 0, busy shall be set to 0, and error "
+                "shall be set to 0. Reset is synchronous and active-low. "
+                "The specification does not state a rising or falling clock edge."
+            ),
+        )
+        codes = {issue.code for issue in result.issues}
+        self.assertNotIn(
+            "RESET_UNRESOLVED_SPECIFICATION_CONTRADICTION",
+            codes,
+        )
+        blocking_messages = [
+            issue.message for issue in result.issues
+            if issue.code == "UNRESOLVED_REQUIREMENT_BLOCKS_RTL"
+        ]
+        self.assertTrue(
+            any("Unresolved clock requirement" in message for message in blocking_messages)
+        )
+        self.assertFalse(
+            any("Unresolved reset requirement" in message for message in blocking_messages)
+        )
+
+    def test_partial_reset_timing_does_not_make_known_type_unknown(self):
+        code = [
+            "MODULE reset_outputs",
+            "INPUT rst_n",
+            "OUTPUT result[31:0]",
+            "UNRESOLVED RESET : reset behavior - reset type and timing details beyond synchronous active-low are not fully specified",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            specification=(
+                "When rst_n is asserted low, result shall be set to 32'b0. "
+                "Reset is synchronous and active-low."
+            ),
+        )
+        codes = {issue.code for issue in result.issues}
+        self.assertNotIn("RESET_UNRESOLVED_SPECIFICATION_CONTRADICTION", codes)
+        self.assertIn("UNRESOLVED_REQUIREMENT_BLOCKS_RTL", codes)
+
+    def test_genuinely_unspecified_reset_type_claim_is_contradictory(self):
+        code = [
+            "MODULE reset_outputs",
+            "INPUT rst_n",
+            "OUTPUT result[31:0]",
+            "UNRESOLVED RESET : reset behavior - reset type is not specified",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            specification=(
+                "When rst_n is asserted low, result shall be set to 32'b0. "
+                "Reset is synchronous and active-low."
+            ),
+        )
+        codes = {issue.code for issue in result.issues}
+        self.assertIn("RESET_UNRESOLVED_SPECIFICATION_CONTRADICTION", codes)
+        self.assertIn("UNRESOLVED_REQUIREMENT_BLOCKS_RTL", codes)
+
+    def test_explicit_output_reset_value_cannot_be_marked_unspecified(self):
+        code = [
+            "MODULE reset_outputs",
+            "INPUT rst_n",
+            "OUTPUT result[31:0]",
+            "UNRESOLVED RESET : reset behavior - reset value for result_reg is not specified",
+            "END MODULE",
+        ]
+        result = validate_pseudocode_detailed(
+            code,
+            specification=(
+                "When rst_n is asserted low, result shall be set to 32'b0. "
+                "Reset is synchronous and active-low."
+            ),
+        )
+        self.assertIn(
+            "RESET_UNRESOLVED_SPECIFICATION_CONTRADICTION",
+            {issue.code for issue in result.issues},
+        )
+        self.assertIn(
+            "UNRESOLVED_REQUIREMENT_BLOCKS_RTL",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_component_scope_requires_balanced_module_delimiters(self):
+        result = validate_pseudocode_detailed(
+            ["MODULE capture", "INPUT clk"],
+            component_scope={
+                "inputs": ["clk"],
+                "outputs": [],
+            },
+        )
+        self.assertIn(
+            "MISSING_END_DELIMITER",
+            {issue.code for issue in result.issues},
+        )
 
 
 if __name__ == "__main__":

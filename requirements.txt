@@ -6,3 +6,6 @@ python-dotenv
 docx2txt
 pymupdf
 langchain_huggingface
+fastapi
+uvicorn
+python-multipart

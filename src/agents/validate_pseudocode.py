@@ -334,8 +334,7 @@ class GrammarParser:
                     if node.attributes["details"]:
                         node.attributes.update(self._parse_reset_details(node.attributes["details"], index))
                     self._append(node)
-                    if mode == "NOT SPECIFIED":
-                        self.stack.append(node)
+                    self.stack.append(node)
                 else:
                     self.issue("INVALID_RESET_SYNTAX", "RESET must specify SYNCHRONOUS, ASYNCHRONOUS, or NOT SPECIFIED.", index)
                 continue
@@ -896,7 +895,10 @@ def _validate_control_structure(
                     )
                 stack.pop()
 
-        elif upper == "RESET NOT SPECIFIED":
+        elif re.match(
+            r"^RESET\s+(?:NOT\s+SPECIFIED|SYNCHRONOUS\b|ASYNCHRONOUS\b)",
+            upper,
+        ):
             reset_count += 1
             stack.append(("RESET", line_number))
         elif upper == "END RESET":
@@ -1049,7 +1051,29 @@ def _split_if_branches(
 def _control_terminal_paths(
     body_lines: Sequence[tuple[int, str]],
 ) -> list[dict[str, list[int]]]:
-    """Expand sequential assignments, IF branches, and CASE branches into terminal paths."""
+    """Expand clocked control flow, keeping reset paths separate from normal paths."""
+    normal_lines: list[tuple[int, str]] = []
+    reset_paths: list[dict[str, list[int]]] = []
+    index = 0
+    while index < len(body_lines):
+        upper = body_lines[index][1].strip().upper()
+        if upper.startswith("RESET "):
+            end_index = _matching_control_end(
+                body_lines,
+                index,
+                "RESET ",
+                "END RESET",
+            )
+            if end_index is not None:
+                reset_paths.extend(
+                    _control_terminal_paths(body_lines[index + 1:end_index])
+                )
+                index = end_index + 1
+                continue
+        normal_lines.append(body_lines[index])
+        index += 1
+
+    body_lines = normal_lines
     paths: list[dict[str, list[int]]] = [{}]
     index = 0
 
@@ -1159,7 +1183,7 @@ def _control_terminal_paths(
 
         index += 1
 
-    return paths
+    return paths + reset_paths
 
 
 def _validate_declarations(
@@ -2093,7 +2117,18 @@ def _validate_specification_awareness(
     issues: list[ValidationIssue],
 ) -> None:
     spec_text = _specification_text(specification, understanding)
-    if isinstance(understanding, Mapping):
+    component_scope = context.get("component_scope")
+    if isinstance(component_scope, Mapping):
+        inputs = component_scope.get("inputs", []) or []
+        outputs = component_scope.get("outputs", []) or []
+        ambiguities = component_scope.get("ambiguities", []) or []
+        if isinstance(understanding, Mapping):
+            constraints = understanding.get("constraints", []) or []
+        elif understanding is not None:
+            constraints = getattr(understanding, "constraints", []) or []
+        else:
+            constraints = []
+    elif isinstance(understanding, Mapping):
         inputs = understanding.get("inputs", []) or []
         outputs = understanding.get("outputs", []) or []
         constraints = understanding.get("constraints", []) or []
@@ -2110,19 +2145,31 @@ def _validate_specification_awareness(
         ambiguities = []
 
     declared_interfaces: set[str] = set()
+    actual_interfaces: dict[str, tuple[str, Optional[str], int]] = {}
     for line_number, text in lines:
-        match = re.match(r"^(INPUT|OUTPUT|INOUT)\s+(" + IDENTIFIER + r")\b", text, re.I)
+        match = re.match(
+            r"^(CLOCK|INPUT|OUTPUT|INOUT)\s+(" + IDENTIFIER
+            + r")(?:\s*(\[[0-9]+:[0-9]+\]))?",
+            text,
+            re.I,
+        )
         if match:
             declared_interfaces.add(match.group(2))
-        clock_match = re.match(r"^CLOCK\s+(" + IDENTIFIER + r")\b", text, re.I)
-        if clock_match:
-            declared_interfaces.add(clock_match.group(1))
+            direction = "INPUT" if match.group(1).upper() == "CLOCK" else match.group(1).upper()
+            actual_interfaces[match.group(2)] = (direction, match.group(3), line_number)
 
     expected_names: set[str] = set()
-    for item in list(inputs or []) + list(outputs or []):
-        first = re.search(r"\b(" + IDENTIFIER + r")\b", str(item))
-        if first:
-            expected_names.add(first.group(1))
+    expected_interfaces: dict[str, tuple[str, Optional[str]]] = {}
+    for direction, items in (("INPUT", inputs), ("OUTPUT", outputs)):
+        for item in items or []:
+            first = re.match(
+                r"^\s*(" + IDENTIFIER + r")(?:\s*(\[[0-9]+:[0-9]+\]))?",
+                str(item),
+            )
+            if first:
+                name, width = first.group(1), first.group(2)
+                expected_names.add(name)
+                expected_interfaces[name] = (direction, width)
     for expected in sorted(expected_names):
         if expected.lower() not in {name.lower() for name in declared_interfaces}:
             _issue(
@@ -2134,13 +2181,200 @@ def _validate_specification_awareness(
                 identifier=expected,
             )
 
+    if isinstance(component_scope, Mapping):
+        for name, (direction, width) in expected_interfaces.items():
+            actual = actual_interfaces.get(name)
+            if actual is not None and (
+                actual[0] != direction or (width is not None and actual[1] != width)
+            ):
+                _issue(
+                    issues,
+                    "COMPONENT_INTERFACE_MISMATCH",
+                    "error",
+                    actual[2],
+                    f"Interface '{name}' must be declared as {direction}"
+                    f"{width or ''} to match its decomposed component interface.",
+                    identifier=name,
+                )
+        for name, (direction, width, line_number) in actual_interfaces.items():
+            if name not in expected_interfaces:
+                _issue(
+                    issues,
+                    "COMPONENT_INTERFACE_MISMATCH",
+                    "error",
+                    line_number,
+                    f"Interface '{name}' is not part of this component's decomposed interface.",
+                    identifier=name,
+                )
+
+        output_names = set()
+        for item in outputs:
+            output_match = re.match(
+                r"^\s*(" + IDENTIFIER + r")(?:\s*(\[[0-9]+:[0-9]+\]))?",
+                str(item),
+            )
+            if output_match:
+                output_names.add(output_match.group(1))
+        assigned_targets = {
+            _base_identifier(assignment[0])
+            for block in _block_ranges(lines)
+            for _, text in block["lines"]
+            if (assignment := _extract_assignment(text))
+        }
+        for output_name in sorted(output_names - assigned_targets):
+            _issue(
+                issues,
+                "COMPONENT_OUTPUT_UNIMPLEMENTED",
+                "error",
+                None,
+                f"Component output '{output_name}' has no assignment in a "
+                "combinational or clocked block.",
+                identifier=output_name,
+            )
+
+        if component_scope.get("requires_clocked_logic"):
+            if not any(block["kind"] == "CLOCKED" for block in _block_ranges(lines)):
+                _issue(
+                    issues,
+                    "COMPONENT_CLOCKED_LOGIC_MISSING",
+                    "error",
+                    None,
+                    "This component is identified as sequential but has no "
+                    "clocked block.",
+                )
+
+        assumptions = component_scope.get("assumptions", []) or []
+        unresolved_issues = component_scope.get("unresolved_issues", []) or []
+        ignored_assertion_words = {
+            "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+            "in", "is", "it", "of", "on", "or", "that", "the", "this", "to",
+            "unspecified", "specified", "specification", "behavior", "whether",
+            "assumed", "assumption", "unresolved", "not", "defined", "does",
+            "do", "when", "if", "with", "without", "exact", "original",
+        }
+        for assumption in assumptions:
+            assumption_text = re.sub(
+                r"[^a-z0-9]+",
+                " ",
+                str(assumption).lower(),
+            ).strip()
+            if not assumption_text:
+                continue
+            for unresolved in unresolved_issues:
+                unresolved_original = str(unresolved).lower()
+                unresolved_text = re.sub(
+                    r"[^a-z0-9]+",
+                    " ",
+                    unresolved_original,
+                ).strip()
+                capture_hold_without_reset_value = (
+                    re.search(r"\b(?:hold|retain)\b", assumption_text)
+                    and re.search(
+                        r"\b(?:between|until)\b.*\bcapture\b",
+                        assumption_text,
+                    )
+                    and re.search(
+                        r"\b(?:no|not|unspecified|unknown)\b.{0,30}"
+                        r"\breset value\b",
+                        assumption_text,
+                    )
+                    and "reset" in unresolved_text
+                    and "reset value" in unresolved_text
+                )
+                valid_decode_exclusivity = (
+                    re.search(
+                        r"\b(?:mutually exclusive|only one asserted)\b",
+                        assumption_text,
+                    )
+                    and re.search(
+                        r"\bvalid\b.{0,30}\b(?:opcode|decoded|decoder)\b",
+                        assumption_text,
+                    )
+                    and re.search(
+                        r"\b(?:simultaneous|multiple|both asserted)\b",
+                        unresolved_text,
+                    )
+                    and not re.search(
+                        r"\bvalid\b.{0,40}"
+                        r"\b(?:simultaneous|multiple|both asserted)\b",
+                        unresolved_text,
+                    )
+                )
+                if capture_hold_without_reset_value or valid_decode_exclusivity:
+                    continue
+                assumption_terms = {
+                    term for term in assumption_text.split()
+                    if term not in ignored_assertion_words
+                }
+                unresolved_terms = {
+                    term for term in unresolved_text.split()
+                    if term not in ignored_assertion_words
+                }
+                shared_terms = assumption_terms.intersection(unresolved_terms)
+                substantial_overlap = (
+                    len(shared_terms) >= 2
+                    and len(shared_terms)
+                    / max(1, min(len(assumption_terms), len(unresolved_terms)))
+                    >= 0.6
+                )
+                assumption_identifiers = set(re.findall(
+                    r"\b[a-z_][a-z0-9_]*\b",
+                    str(assumption).lower(),
+                ))
+                unresolved_identifiers = set(re.findall(
+                    r"\b[a-z_][a-z0-9_]*\b",
+                    unresolved_original,
+                ))
+                shared_signal_names = {
+                    term for term in assumption_identifiers.intersection(
+                        unresolved_identifiers
+                    )
+                    if "_" in term
+                }
+                exclusivity_conflict = (
+                    bool(shared_signal_names)
+                    and re.search(
+                        r"\b(?:mutually exclusive|only one asserted|"
+                        r"never simultaneously|cannot simultaneously)\b",
+                        str(assumption).lower(),
+                    )
+                    and re.search(
+                        r"\b(?:both|multiple|simultaneous)\b.{0,80}"
+                        r"\b(?:asserted|active|selected|occur)\b",
+                        unresolved_original,
+                    )
+                )
+                if (
+                    unresolved_text
+                    and (
+                        assumption_text in unresolved_text
+                        or unresolved_text in assumption_text
+                        or substantial_overlap
+                        or exclusivity_conflict
+                    )
+                ):
+                    _issue(
+                        issues,
+                        "ASSUMPTION_UNRESOLVED_CONTRADICTION",
+                        "error",
+                        None,
+                        "The same behavior is reported as both an assumption "
+                        f"and unresolved: '{assumption}'.",
+                    )
+                    break
+
     for line_number, text in lines:
         for keyword in ("CLOCK", "INPUT", "OUTPUT", "INOUT", "REG", "SIG"):
             match = re.match(r"^" + keyword + r"\s+(" + IDENTIFIER + r")(?:\[([0-9]+):([0-9]+)\])?", text, re.I)
             if not match:
                 continue
             name = match.group(1)
-            if spec_text and name.lower() not in spec_text and keyword in {"CLOCK", "INPUT", "OUTPUT", "INOUT"}:
+            if (
+                spec_text
+                and name.lower() not in spec_text
+                and name not in expected_names
+                and keyword in {"CLOCK", "INPUT", "OUTPUT", "INOUT"}
+            ):
                 _issue(
                     issues,
                     "INTERFACE_UNSUPPORTED_BY_SPECIFICATION",
@@ -2151,51 +2385,133 @@ def _validate_specification_awareness(
                 )
             break
 
+        # Use only the original specification and explicit constraints
+    # as evidence for reset behavior. Ambiguities are not proof.
+    reset_evidence_parts = []
+
+    if specification is not None:
+        reset_evidence_parts.append(str(specification))
+
+    reset_evidence_parts.extend(
+        str(item) for item in constraints if item
+    )
+
+    reset_evidence_text = re.sub(
+        r"-",
+        " ",
+        "\n".join(reset_evidence_parts).lower(),
+    )
+
+    # Consider only sentences that explicitly discuss reset behavior.
+    reset_sentences = [
+        sentence.strip()
+        for sentence in re.split(r"[\n.!?;]+", reset_evidence_text)
+        if re.search(r"\b(reset|rst_n|reset_n|rst)\b", sentence)
+    ]
+    reset_output_names = {
+        name.lower()
+        for name, (direction, _) in expected_interfaces.items()
+        if direction == "OUTPUT"
+    }
+    reset_output_names.update(
+        name.lower()
+        for name, (direction, _, _) in actual_interfaces.items()
+        if direction == "OUTPUT"
+    )
+
+    def has_positive_reset_evidence(term: str) -> bool:
+        for sentence in reset_sentences:
+            if not re.search(r"\b" + term + r"\b", sentence):
+                continue
+
+            # Avoid treating explicitly negated statements as evidence.
+            if re.search(
+                r"\b(?:not|never|no|without|isn't|aren't)\b"
+                r"(?:\W+\w+){0,4}\W+" + term + r"\b",
+                sentence,
+            ):
+                continue
+
+            return True
+
+        return False
+
+    def has_explicit_zero_reset_value(signal_name: str) -> bool:
+        aliases = {signal_name}
+        if signal_name.endswith("_reg"):
+            aliases.add(signal_name[:-4])
+        else:
+            aliases.add(f"{signal_name}_reg")
+        for sentence in reset_sentences:
+            for alias in aliases:
+                signal_match = re.search(
+                    r"\b" + re.escape(alias) + r"\b",
+                    sentence,
+                )
+                if signal_match is None:
+                    continue
+                assignment_clause = re.split(
+                    r",|\band\b",
+                    sentence[signal_match.end():],
+                    maxsplit=1,
+                )[0]
+                if re.search(
+                    r"\bzero\b|\b0\b|\b[0-9]+'[bdho]0+\b",
+                    assignment_clause,
+                ):
+                    return True
+        return False
+
     for line_number, text in lines:
         if text.upper().startswith("RESET NOT SPECIFIED"):
-            # The unresolved entry is handled by the unresolved/reset passes.
             continue
-        if text.upper().startswith("RESET "):
-            reset_words = re.findall(r"[A-Za-z_][A-Za-z0-9_$]*", text)
-            supported = any(
-                word.lower() in spec_text
-                for word in reset_words
-                if word.upper() in {"SYNCHRONOUS", "ASYNCHRONOUS", "ACTIVE_HIGH", "ACTIVE_LOW"}
+
+        reset_match = re.match(
+            r"^RESET\s+(SYNCHRONOUS|ASYNCHRONOUS)\b.*?"
+            r"\b(ACTIVE_HIGH|ACTIVE_LOW)\b",
+            text,
+            re.I,
+        )
+
+        if not reset_match:
+            continue
+
+        reset_mode = reset_match.group(1).upper()
+        reset_polarity = reset_match.group(2).upper()
+
+        opposite_mode = (
+            "ASYNCHRONOUS"
+            if reset_mode == "SYNCHRONOUS"
+            else "SYNCHRONOUS"
+        )
+
+        opposite_polarity = (
+            "ACTIVE_LOW"
+            if reset_polarity == "ACTIVE_HIGH"
+            else "ACTIVE_HIGH"
+        )
+
+        if has_positive_reset_evidence(opposite_mode.lower()):
+            _issue(
+                issues,
+                "RESET_SPECIFICATION_UNSUPPORTED",
+                "error",
+                line_number,
+                f"Reset type '{reset_mode}' conflicts with explicit "
+                f"specification evidence for '{opposite_mode}'.",
             )
-            if not supported and spec_text:
-                _issue(
-                    issues,
-                    "RESET_SPECIFICATION_UNSUPPORTED",
-                    "error",
-                    line_number,
-                    "Reset type or polarity is not supported by the provided specification or Understanding evidence.",
-                )
-            reset_match = re.match(
-                r"^RESET\s+(SYNCHRONOUS|ASYNCHRONOUS)\b.*?\b(ACTIVE_HIGH|ACTIVE_LOW)\b",
-                text,
-                re.I,
+
+        polarity_term = opposite_polarity.lower().replace("_", " ")
+
+        if has_positive_reset_evidence(polarity_term):
+            _issue(
+                issues,
+                "RESET_SPECIFICATION_UNSUPPORTED",
+                "error",
+                line_number,
+                f"Reset polarity '{reset_polarity}' conflicts with "
+                f"explicit specification evidence for '{opposite_polarity}'.",
             )
-            if reset_match:
-                reset_mode = reset_match.group(1).upper()
-                reset_polarity = reset_match.group(2).upper()
-                opposite_mode = "ASYNCHRONOUS" if reset_mode == "SYNCHRONOUS" else "SYNCHRONOUS"
-                opposite_polarity = "ACTIVE_LOW" if reset_polarity == "ACTIVE_HIGH" else "ACTIVE_HIGH"
-                if re.search(r"\b" + opposite_mode.lower() + r"\b", spec_text):
-                    _issue(
-                        issues,
-                        "RESET_SPECIFICATION_UNSUPPORTED",
-                        "error",
-                        line_number,
-                        f"Reset type '{reset_mode}' conflicts with specification evidence for '{opposite_mode}'.",
-                    )
-                if re.search(r"\b" + opposite_polarity.lower() + r"\b", spec_text):
-                    _issue(
-                        issues,
-                        "RESET_SPECIFICATION_UNSUPPORTED",
-                        "error",
-                        line_number,
-                        f"Reset polarity '{reset_polarity}' conflicts with specification evidence for '{opposite_polarity}'.",
-                    )
 
     unresolved_entries = []
     for _, text in lines:
@@ -2205,9 +2521,108 @@ def _validate_specification_awareness(
             re.I,
         )
         if match:
+            unresolved_scope = match.group(1).strip().lower()
+            unresolved_target = match.group(2).strip().lower()
+            unresolved_detail = match.group(3).strip().lower()
             unresolved_entries.append(
-                (match.group(1).strip().lower(), match.group(2).strip().lower(), match.group(3).strip().lower())
+                (unresolved_scope, unresolved_target, unresolved_detail)
             )
+            if unresolved_scope != "reset":
+                continue
+            missing_detail = f"{unresolved_target} {unresolved_detail}"
+            missing_detail = re.sub(r"-", " ", missing_detail)
+
+            def claims_reset_property_missing(
+                property_pattern: str,
+                specified_evidence: tuple[str, ...],
+            ) -> bool:
+                property_match = re.search(property_pattern, missing_detail)
+                if property_match is None:
+                    return False
+                tail = missing_detail[property_match.end():]
+                missing_match = re.search(
+                    r"\b(?:not specified|unspecified|unknown|"
+                    r"not fully specified)\b",
+                    tail,
+                )
+                if missing_match is None:
+                    return False
+                preceding_detail = tail[:missing_match.start()]
+                beyond_match = re.search(r"\bbeyond\b", preceding_detail)
+                if beyond_match is not None:
+                    beyond_detail = preceding_detail[beyond_match.end():]
+                    if any(
+                        re.search(
+                            r"\b" + re.escape(evidence) + r"\b",
+                            beyond_detail,
+                        )
+                        and has_positive_reset_evidence(evidence)
+                        for evidence in specified_evidence
+                    ):
+                        return False
+                return True
+
+            claims_reset_type_missing = claims_reset_property_missing(
+                r"\breset\s+type\b",
+                ("synchronous", "asynchronous"),
+            ) and (
+                has_positive_reset_evidence("synchronous")
+                or has_positive_reset_evidence("asynchronous")
+            )
+            claims_reset_polarity_missing = claims_reset_property_missing(
+                r"\breset\s+polarity\b",
+                ("active low", "active high"),
+            ) and (
+                has_positive_reset_evidence("active low")
+                or has_positive_reset_evidence("active high")
+            )
+            reset_value_missing = bool(re.search(
+                r"\breset values?\b.{0,80}"
+                r"\b(?:not specified|unspecified|unknown)\b",
+                missing_detail,
+            ))
+            reset_value_explicitly_described = bool(re.search(
+                r"\breset values?\b.{0,80}\b(?:is|are)\s+specified\b",
+                missing_detail,
+            ))
+            claims_reset_output_value_missing = (
+                reset_value_missing
+                and not reset_value_explicitly_described
+                and any(
+                    any(
+                        re.search(
+                            r"\b" + re.escape(alias) + r"\b",
+                            missing_detail,
+                        )
+                        for alias in (
+                            {output_name, f"{output_name}_reg"}
+                        )
+                    )
+                    and has_explicit_zero_reset_value(output_name)
+                    for output_name in reset_output_names
+                )
+            )
+            if (
+                claims_reset_type_missing
+                or claims_reset_polarity_missing
+                or claims_reset_output_value_missing
+            ):
+                specified_detail = (
+                    "type"
+                    if claims_reset_type_missing
+                    else "polarity"
+                    if claims_reset_polarity_missing
+                    else "output value"
+                )
+                _issue(
+                    issues,
+                    "RESET_UNRESOLVED_SPECIFICATION_CONTRADICTION",
+                    "error",
+                    None,
+                    f"An UNRESOLVED RESET entry claims the reset {specified_detail} "
+                    "is unspecified even though the original specification "
+                    "states it explicitly.",
+                )
 
     for ambiguity in ambiguities or []:
         ambiguity_text = str(ambiguity).lower()

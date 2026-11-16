@@ -7,7 +7,9 @@ from src.llm.llm import (
     UsageCallbackHandler,
     UsageTracker,
     _usage_from_result,
+    bind_usage_tracker,
     get_llm,
+    reset_usage_context,
     usage_scope,
 )
 
@@ -68,25 +70,45 @@ def test_call_without_usage_scope_is_reported_as_unattributed():
     before = tracker.snapshot().get("unattributed", {}).copy()
     run_id = uuid4()
 
-    callback.on_chat_model_start({}, [], run_id=run_id)
-    callback.on_llm_end(
-        SimpleNamespace(
-            llm_output={
-                "token_usage": {
-                    "prompt_tokens": 5,
-                    "completion_tokens": 3,
-                    "total_tokens": 8,
-                }
-            },
-            generations=[],
-        ),
-        run_id=run_id,
-    )
+    token = bind_usage_tracker(tracker)
+    try:
+        callback.on_chat_model_start({}, [], run_id=run_id)
+        callback.on_llm_end(
+            SimpleNamespace(
+                llm_output={
+                    "token_usage": {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 3,
+                        "total_tokens": 8,
+                    }
+                },
+                generations=[],
+            ),
+            run_id=run_id,
+        )
+    finally:
+        reset_usage_context(token)
 
     unattributed = tracker.snapshot()["unattributed"]
     assert unattributed["calls"] == before.get("calls", 0) + 1
     assert unattributed["total_tokens"] == before.get("total_tokens", 0) + 8
     assert unattributed["complete"] is False
+
+
+def test_call_outside_any_run_is_local_to_its_callback():
+    callback = UsageCallbackHandler()
+    run_id = uuid4()
+
+    callback.on_chat_model_start({}, [], run_id=run_id)
+    callback.on_llm_end(
+        SimpleNamespace(
+            llm_output=None,
+            generations=[],
+        ),
+        run_id=run_id,
+    )
+
+    assert callback.snapshot()["unattributed"]["calls"] == 1
 
 
 def test_missing_usage_and_failed_call_mark_totals_incomplete():

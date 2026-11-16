@@ -18,7 +18,12 @@ from src.agents.understanding import understand_specification
 from src.agents.verification import verify_rtl
 from src.experimental_rtl_generation import run_experimental_rtl_generation
 from src.ingestion import ingest_spec
-from src.llm.llm import UsageTracker, usage_scope
+from src.llm.llm import (
+    UsageTracker,
+    bind_usage_tracker,
+    reset_usage_context,
+    usage_scope,
+)
 AGENT_ORDER = [
     "understanding",
     "decomposer",
@@ -622,6 +627,7 @@ def run_pipeline(
     progress_callback=None,
     *,
     strict_validation=False,
+    usage_tracker_callback=None,
 ):
     """Run the pipeline and write artifacts into ``output_dir``.
 
@@ -667,6 +673,7 @@ def run_pipeline(
         "errors": [],
     }
     usage_tracker = UsageTracker()
+    usage_context_token = bind_usage_tracker(usage_tracker)
 
     def fail(error: Exception):
         if stage in {"pseudocode", "rtl_generation"}:
@@ -710,6 +717,8 @@ def run_pipeline(
         )
 
     try:
+        if usage_tracker_callback is not None:
+            usage_tracker_callback(usage_tracker)
         print("\n" + "=" * 70)
         print("SPEC2RTL MULTI-AGENT PIPELINE")
         print("=" * 70)
@@ -1299,6 +1308,8 @@ def run_pipeline(
     except Exception as error:
         fail(error)
         raise
+    finally:
+        reset_usage_context(usage_context_token)
 
 
 def main() -> None:

@@ -72,6 +72,7 @@ class RunMetadata(BaseModel):
     agents: dict[str, AgentState]
     summary: RunSummary | None = None
     source: str | None = None
+    token_usage: dict[str, Any] | None = None
 
 
 class RunListResponse(BaseModel):

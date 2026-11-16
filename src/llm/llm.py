@@ -70,7 +70,7 @@ class UsageTracker:
 
     def snapshot(self) -> dict:
         with self._lock:
-            snapshot = {
+            return {
                 name: {
                     **{key: value for key, value in totals.items() if key != "by_component"},
                     **(
@@ -86,11 +86,6 @@ class UsageTracker:
                 }
                 for name, totals in self._agents.items()
             }
-        if self is not FALLBACK_USAGE_TRACKER:
-            fallback = FALLBACK_USAGE_TRACKER.snapshot()
-            if "unattributed" in fallback:
-                snapshot["unattributed"] = fallback["unattributed"]
-        return snapshot
 
 
 @contextmanager
@@ -105,6 +100,16 @@ def usage_scope(
         yield
     finally:
         _usage_context.reset(token)
+
+
+def bind_usage_tracker(tracker: UsageTracker):
+    """Bind a run tracker with an unattributed default for the run context."""
+    return _usage_context.set(UsageContext(tracker, "unattributed"))
+
+
+def reset_usage_context(token) -> None:
+    """Restore the context that was active before a run tracker was bound."""
+    _usage_context.reset(token)
 
 
 def _usage_from_result(response) -> dict | None:
@@ -155,18 +160,23 @@ class UsageCallbackHandler(BaseCallbackHandler):
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._pending: dict[object, UsageContext] = {}
+        self._fallback_tracker = UsageTracker()
+
+    def snapshot(self) -> dict:
+        """Return calls captured outside a pipeline's bound run context."""
+        return self._fallback_tracker.snapshot()
 
     def on_llm_start(self, serialized, prompts, *, run_id, **kwargs) -> None:
         context = _usage_context.get()
         if context is None:
-            context = UsageContext(FALLBACK_USAGE_TRACKER, "unattributed")
+            context = UsageContext(self._fallback_tracker, "unattributed")
         with self._lock:
             self._pending[run_id] = context
 
     def on_chat_model_start(self, serialized, messages, *, run_id, **kwargs) -> None:
         context = _usage_context.get()
         if context is None:
-            context = UsageContext(FALLBACK_USAGE_TRACKER, "unattributed")
+            context = UsageContext(self._fallback_tracker, "unattributed")
         with self._lock:
             self._pending[run_id] = context
 
@@ -181,9 +191,6 @@ class UsageCallbackHandler(BaseCallbackHandler):
             context = self._pending.pop(run_id, None)
         if context is not None:
             context.tracker.record(context, None)
-
-
-FALLBACK_USAGE_TRACKER = UsageTracker()
 
 
 def is_free_openrouter_model(agent_name=None):

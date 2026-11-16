@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.pipeline import AGENT_ORDER, run_pipeline
+from src.llm.llm import UsageTracker
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUTS = ROOT / "outputs"
@@ -49,10 +50,35 @@ DOWNLOADABLE = {
 }
 
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+TOKEN_USAGE_FIELDS = (
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "calls",
+    "calls_without_usage",
+)
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def build_token_usage(by_agent: dict[str, dict]) -> dict:
+    """Combine per-agent tracker data into the run-level API shape."""
+    agents = {
+        name: usage
+        for name, usage in by_agent.items()
+        if usage.get("calls", 0) > 0
+    }
+    totals = {field: 0 for field in TOKEN_USAGE_FIELDS}
+    for usage in agents.values():
+        for field in TOKEN_USAGE_FIELDS:
+            totals[field] += usage.get(field, 0)
+    return {
+        **totals,
+        "complete": all(usage.get("complete", False) for usage in agents.values()),
+        "by_agent": agents,
+    }
 
 
 def empty_metadata(run_id: str, filename: str, file_size: int, file_type: str) -> dict:
@@ -306,12 +332,36 @@ class RunManager:
         return copy.deepcopy(metadata)
 
     def _execute(self, run_id: str, spec_path: Path, run_dir: Path) -> None:
+        usage_tracker: UsageTracker | None = None
+
+        def persist_usage(metadata: dict) -> None:
+            if usage_tracker is not None:
+                metadata["token_usage"] = build_token_usage(usage_tracker.snapshot())
+
+        def tracker_ready(tracker: UsageTracker) -> None:
+            nonlocal usage_tracker
+            usage_tracker = tracker
+            self._update(run_id, persist_usage)
+
         def callback(event: dict) -> None:
-            self._update(run_id, lambda metadata: apply_progress(metadata, event))
+            def update_metadata(metadata: dict) -> None:
+                apply_progress(metadata, event)
+                if (
+                    event.get("stage") in metadata["agents"]
+                    and event.get("status") in {"completed", "failed", "cancelled"}
+                ):
+                    persist_usage(metadata)
+
+            self._update(run_id, update_metadata)
 
         try:
-            summary = run_pipeline(spec_path, run_dir, progress_callback=callback)
-        except Exception as error:
+            summary = run_pipeline(
+                spec_path,
+                run_dir,
+                progress_callback=callback,
+                usage_tracker_callback=tracker_ready,
+            )
+        except BaseException as error:
             message = f"{type(error).__name__}: {error}"
             stage = getattr(error, "pipeline_stage", None)
 
@@ -322,8 +372,11 @@ class RunManager:
                 if stage and not metadata.get("failed_stage"):
                     metadata["failed_stage"] = stage
                 _skip_pending_agents(metadata, after=metadata.get("failed_stage"))
+                persist_usage(metadata)
 
             self._update(run_id, mark_failed)
+            if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                raise
             return
 
         def mark_completed(metadata: dict) -> None:
@@ -333,6 +386,7 @@ class RunManager:
             )
             metadata["finished_at"] = utc_now()
             metadata["summary"] = summary
+            persist_usage(metadata)
             if overall_status == "failed" and not metadata.get("error"):
                 metadata["error"] = (
                     "One or more pipeline stages failed; inspect the run summary."

@@ -224,6 +224,19 @@ class RunManager:
                     elif agent.get("status") == "pending":
                         agent["status"] = "skipped"
                 self._write(metadata)
+            if not metadata.get("token_usage"):
+                for check_name in ("run_manifest.json", "pipeline_summary.json"):
+                    check_file = path.parent / check_name
+                    if check_file.is_file():
+                        try:
+                            cf_data = json.loads(check_file.read_text(encoding="utf-8"))
+                            raw_u = cf_data.get("token_usage")
+                            if isinstance(raw_u, dict) and raw_u:
+                                metadata["token_usage"] = build_token_usage(raw_u)
+                                self._write(metadata)
+                                break
+                        except Exception:
+                            pass
             self._remember(metadata)
 
     def _import_cli_snapshot(self) -> None:

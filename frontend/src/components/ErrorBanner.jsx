@@ -42,8 +42,10 @@ export default function ErrorBanner({ error, title, className = "" }) {
   const ts = fmtMsTimestamp(error);
 
   return (
-    <div className={`rounded-2xl border border-[#F3C0C0] bg-[#FFF6F6] px-4 py-3 text-sm text-[#8F1D1D] ${className}`}>
-      {title && <div className="mb-1 font-semibold">{title}</div>}
+    <div
+      className={`rounded-xl border border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.08)] px-4 py-3 text-xs font-mono text-[var(--bad)] ${className}`}
+    >
+      {title && <div className="mb-1 font-bold">{title}</div>}
 
       {/* Deduplicated view */}
       {!showRaw && (
@@ -52,7 +54,7 @@ export default function ErrorBanner({ error, title, className = "" }) {
             <li key={i} className="flex items-start gap-2 leading-snug">
               <span className="flex-1">{msg}</span>
               {count > 1 && (
-                <span className="shrink-0 rounded-full bg-[#FDECEC] px-1.5 py-0.5 text-[10px] font-bold text-[#B42318]">
+                <span className="shrink-0 rounded-full bg-[rgba(248,113,113,0.2)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--bad)]">
                   ×{count}
                 </span>
               )}
@@ -63,14 +65,14 @@ export default function ErrorBanner({ error, title, className = "" }) {
 
       {/* Raw text */}
       {showRaw && (
-        <p className="whitespace-pre-wrap break-words font-mono text-xs leading-5">
+        <p className="whitespace-pre-wrap break-words text-xs leading-5">
           {error}
         </p>
       )}
 
       {/* Rate-limit human timestamp */}
       {ts && !showRaw && (
-        <p className="mt-1.5 text-xs text-[#B42318]/80 font-medium">Reset at: {ts}</p>
+        <p className="mt-1.5 text-[11px] opacity-80">Reset at: {ts}</p>
       )}
 
       {/* Toggle */}
@@ -78,7 +80,7 @@ export default function ErrorBanner({ error, title, className = "" }) {
         <button
           type="button"
           onClick={() => setShowRaw((r) => !r)}
-          className="mt-2 text-xs font-semibold text-[#8F1D1D] underline underline-offset-2 hover:text-[#B42318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7540C5]"
+          className="mt-2 text-xs font-semibold underline underline-offset-2 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bad)]"
         >
           {showRaw ? "Show summary" : "Show raw error"}
         </button>

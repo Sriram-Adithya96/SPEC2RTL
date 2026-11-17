@@ -803,6 +803,10 @@ def run_pipeline(
         except Exception:
             pass
         stage_statuses[stage] = "failed"
+        try:
+            fail_usage = usage_tracker.snapshot()
+        except Exception:
+            fail_usage = {}
         save_json(
             output_dir,
             "run_manifest.json",
@@ -814,6 +818,7 @@ def run_pipeline(
                 "stages": stage_statuses,
                 "artifact_paths": artifact_paths,
                 "error": f"{type(error).__name__}: {error}",
+                "token_usage": fail_usage,
             },
         )
 
@@ -1304,6 +1309,9 @@ def run_pipeline(
             "artifact_paths": artifact_paths,
         }
 
+        usage_snapshot = usage_tracker.snapshot()
+        final_summary["token_usage"] = usage_snapshot
+
         print("\n" + "=" * 70)
         print("PIPELINE EXECUTION SUMMARY")
         print("=" * 70)
@@ -1333,6 +1341,10 @@ def run_pipeline(
         print("Interface Validation        :", stage_statuses["interface_validation"])
         print("Top-level Integration       :", stage_statuses["integration"])
         print("Overall Status              :", overall_status)
+        if usage_snapshot:
+            total_toks = sum(u.get("total_tokens", 0) for u in usage_snapshot.values())
+            total_calls = sum(u.get("calls", 0) for u in usage_snapshot.values())
+            print(f"Token Consumption           : {total_toks:,} tokens across {total_calls} model call(s)")
 
         artifact_paths["pipeline_summary"] = "pipeline_summary.json"
         artifact_paths["run_manifest"] = "run_manifest.json"
@@ -1349,6 +1361,7 @@ def run_pipeline(
                 "stages": stage_statuses,
                 "components": component_state,
                 "artifact_paths": artifact_paths,
+                "token_usage": usage_snapshot,
                 # "pseudocode_validation_status": (
                 #     pseudocode_result.validation_status
                 # ),

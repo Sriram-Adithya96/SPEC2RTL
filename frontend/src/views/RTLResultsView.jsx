@@ -30,25 +30,22 @@ function RTLCode({ code, title, emptyMessage }) {
   return (
     <section
       style={{
-        background: "#1E0B38",
-        border: "1px solid rgba(197,166,242,0.18)",
-        borderRadius: 16,
+        background: "#05080d",
+        border: "1px solid var(--line, #243044)",
+        borderRadius: 12,
         overflow: "hidden",
       }}
     >
       <div
         className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-        style={{
-          background: "rgba(255,255,255,0.05)",
-          borderBottom: "1px solid rgba(197,166,242,0.12)",
-        }}
+        style={{ background: "rgba(16,22,32,0.85)", borderBottom: "1px solid var(--line, #243044)" }}
       >
-        <h4 className="text-sm font-bold" style={{ color: "#C5A6F2" }}>{title}</h4>
+        <h4 className="font-mono text-sm font-bold" style={{ color: "var(--text, #d6deeb)" }}>{title}</h4>
         {source.trim() && (
           <button
             type="button"
             onClick={copy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#C5A6F2]/30 px-2.5 py-1.5 text-xs font-semibold text-[#C5A6F2] hover:bg-white/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7540C5]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-2.5 py-1.5 font-mono text-xs font-semibold text-[var(--mute)] hover:text-[var(--text)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.08)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--acc)]"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied" : "Copy"}
@@ -63,27 +60,11 @@ function RTLCode({ code, title, emptyMessage }) {
           >
             <tbody>
               {lines.map((line, index) => (
-                <tr key={`${index}-${line}`} className="align-top">
-                  <td
-                    style={{
-                      color: "#6B4E9E",
-                      userSelect: "none",
-                      paddingLeft: 12,
-                      paddingRight: 12,
-                      textAlign: "right",
-                      width: 44,
-                    }}
-                  >
+                <tr key={`${index}-${line}`} className="align-top hover:bg-[rgba(125,211,252,0.02)]">
+                  <td style={{ color: "var(--mute, #7d8aa3)", opacity: 0.6, userSelect: "none", paddingLeft: 12, paddingRight: 12, textAlign: "right", width: 44, borderRight: "1px solid rgba(36,48,68,0.5)" }}>
                     {index + 1}
                   </td>
-                  <td
-                    style={{
-                      color: "#E9DEFF",
-                      paddingLeft: 12,
-                      paddingRight: 12,
-                      whiteSpace: "pre-wrap",
-                    }}
-                  >
+                  <td style={{ color: "#9fb3d1", paddingLeft: 12, paddingRight: 12, whiteSpace: "pre-wrap" }}>
                     {line || " "}
                   </td>
                 </tr>
@@ -92,9 +73,11 @@ function RTLCode({ code, title, emptyMessage }) {
           </table>
         </div>
       ) : (
-        <p className="px-4 py-6 text-sm" style={{ color: "#A879E5" }}>{emptyMessage}</p>
+        <p className="px-4 py-6 font-mono text-xs" style={{ color: "var(--mute, #7d8aa3)" }}>{emptyMessage}</p>
       )}
-      {copyError && <p className="border-t border-[#F3C0C0] bg-[#FFF6F6] px-4 py-2 text-sm text-[#8F1D1D]">{copyError}</p>}
+      {copyError && (
+        <p className="border-t border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.08)] px-4 py-2 font-mono text-xs text-[var(--bad)]">{copyError}</p>
+      )}
     </section>
   );
 }
@@ -102,16 +85,16 @@ function RTLCode({ code, title, emptyMessage }) {
 function SignalList({ title, signals }) {
   const items = asList(signals);
   return (
-    <section className="rounded-xl bg-[#F8F5FF] p-3">
-      <h5 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{title}</h5>
+    <section className="rounded-lg border border-[var(--line)] bg-[rgba(10,14,20,0.4)] p-3">
+      <h5 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--mute)]">{title}</h5>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">None recorded.</p>
+        <p className="font-mono text-xs text-[var(--mute)]">None recorded.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {items.map((signal, index) => (
             <span
               key={`${index}-${String(signal)}`}
-              className="rounded-lg bg-[#E9DDFB] px-2 py-1 text-xs font-medium text-[#4A3566]"
+              className="rounded-md border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.08)] px-2 py-0.5 font-mono text-[11px] font-medium text-[var(--acc2)]"
             >
               {asText(signal)}
             </span>
@@ -126,18 +109,18 @@ function StringList({ title, items, emptyMessage = "None recorded.", tone = "def
   const values = asList(items);
   const palette =
     tone === "error"
-      ? "border-[#F3C0C0] bg-[#FFF6F6] text-[#8F1D1D]"
+      ? "border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.07)] text-[var(--bad)]"
       : tone === "warning"
-        ? "border-[#E7D7A1] bg-[#FFF8EA] text-[#7A5B12]"
-        : "border-[#E9DDFB] bg-white text-[#4A3566]";
+        ? "border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.07)] text-[var(--warn)]"
+        : "border-[var(--line)] bg-[rgba(16,22,32,0.6)] text-[var(--text)]";
 
   return (
-    <section className={`rounded-2xl border ${palette} p-4`}>
-      <h4 className="mb-2 text-sm font-bold">{title}</h4>
+    <section className={`rounded-xl border ${palette} p-4`}>
+      <h4 className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">{title}</h4>
       {values.length === 0 ? (
-        <p className="text-sm text-muted">{emptyMessage}</p>
+        <p className="font-mono text-xs text-[var(--mute)]">{emptyMessage}</p>
       ) : (
-        <ul className="list-disc space-y-1 pl-5 text-sm">
+        <ul className="list-disc space-y-1 pl-5 font-mono text-xs">
           {values.map((item, index) => (
             <li key={`${index}-${String(item)}`}>
               {typeof item === "string" ? item : JSON.stringify(item)}
@@ -155,36 +138,33 @@ function ComponentExplorer({ modules }) {
   const selected = modules[activeIndex] || null;
 
   return (
-    <section className="grid gap-4 rounded-3xl border border-white/80 bg-white/80 p-4 shadow-card backdrop-blur md:p-5">
+    <section className="grid gap-4 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4 md:p-5">
       <div>
-        <h3 className="text-lg font-bold text-indigo">Component RTL Explorer</h3>
-        <p className="mt-1 text-sm text-muted">
+        <h3 className="font-mono text-sm font-bold text-[var(--text)]">Component RTL Explorer</h3>
+        <p className="mt-1 font-mono text-xs text-[var(--mute)]">
           Browse component modules recorded in this run's RTL artifact.
         </p>
       </div>
 
       {modules.length === 0 ? (
-        <p className="rounded-2xl border border-[#E9DDFB] bg-[#F8F5FF] p-4 text-sm text-muted">
+        <p className="rounded-xl border border-[var(--line)] bg-[rgba(10,14,20,0.4)] p-4 font-mono text-xs text-[var(--mute)]">
           No component module records were returned.
         </p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.32fr)_minmax(0,1fr)]">
           <nav aria-label="RTL component modules" className="grid content-start gap-2">
             {modules.map((module, index) => {
-              const label =
-                module?.component_name ||
-                module?.module_name ||
-                `Component ${index + 1}`;
+              const label = module?.component_name || module?.module_name || `Component ${index + 1}`;
               return (
                 <button
                   type="button"
                   key={`${label}-${index}`}
                   aria-pressed={activeIndex === index}
                   onClick={() => setSelectedIndex(index)}
-                  className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition ${
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left font-mono text-xs font-semibold transition ${
                     activeIndex === index
-                      ? "border-[#7540C5] bg-[#E9DDFB] text-indigo"
-                      : "border-[#E9DDFB] bg-white text-[#4A3566] hover:bg-[#F8F5FF]"
+                      ? "border-[var(--acc2)] bg-[rgba(167,139,250,0.14)] text-[var(--text)]"
+                      : "border-[var(--line)] bg-transparent text-[var(--mute)] hover:text-[var(--text)] hover:bg-[rgba(36,48,68,0.4)]"
                   }`}
                 >
                   <span className="break-all">{label}</span>
@@ -196,12 +176,12 @@ function ComponentExplorer({ modules }) {
 
           {selected && (
             <div className="grid min-w-0 content-start gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E9DDFB] bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4">
                 <div>
-                  <h4 className="font-bold text-indigo">
+                  <h4 className="font-mono font-bold text-[var(--acc)]">
                     {asText(selected.module_name, "Unnamed module")}
                   </h4>
-                  <p className="mt-1 text-xs text-muted">
+                  <p className="mt-1 font-mono text-xs text-[var(--mute)]">
                     Component: {asText(selected.component_name, "Not provided")}
                   </p>
                 </div>
@@ -219,11 +199,7 @@ function ComponentExplorer({ modules }) {
               </div>
 
               {selected.generation_error && (
-                <StringList
-                  title="Component generation error"
-                  items={[selected.generation_error]}
-                  tone="error"
-                />
+                <StringList title="Component generation error" items={[selected.generation_error]} tone="error" />
               )}
               <RTLCode
                 code={selected.rtl_code}
@@ -241,10 +217,10 @@ function ComponentExplorer({ modules }) {
 function IntegratedInstances({ instances }) {
   const values = asList(instances);
   return (
-    <section className="rounded-2xl border border-[#E9DDFB] bg-white p-4">
-      <h4 className="mb-3 text-sm font-bold text-indigo">Component instances and connections</h4>
+    <section className="rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4">
+      <h4 className="mb-3 font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">Component instances and connections</h4>
       {values.length === 0 ? (
-        <p className="text-sm text-muted">No integrated component instances were recorded.</p>
+        <p className="font-mono text-xs text-[var(--mute)]">No integrated component instances were recorded.</p>
       ) : (
         <div className="grid gap-3">
           {values.map((instance, index) => {
@@ -257,24 +233,24 @@ function IntegratedInstances({ instances }) {
             return (
               <article
                 key={`${instance?.instance_name || instance?.component_name || "instance"}-${index}`}
-                className="rounded-xl bg-[#F8F5FF] p-3"
+                className="rounded-lg border border-[var(--line)] bg-[rgba(10,14,20,0.4)] p-3"
               >
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                  <span className="font-bold text-indigo">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
+                  <span className="font-bold text-[var(--acc)]">
                     {asText(instance?.module_name, "Unnamed module")}
                   </span>
-                  <span className="text-muted">
+                  <span className="text-[var(--mute)]">
                     instance {asText(instance?.instance_name, `#${index + 1}`)}
                   </span>
                 </div>
                 {connections.length === 0 ? (
-                  <p className="mt-2 text-xs text-muted">No port connections recorded.</p>
+                  <p className="mt-2 font-mono text-xs text-[var(--mute)]">No port connections recorded.</p>
                 ) : (
-                  <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+                  <dl className="mt-2 grid gap-1 font-mono text-xs sm:grid-cols-2">
                     {connections.map(([port, signal]) => (
-                      <div key={port} className="break-all text-xs text-[#4A3566]">
-                        <dt className="inline font-semibold">{port}</dt>
-                        <dd className="inline"> ← {asText(signal)}</dd>
+                      <div key={port} className="break-all text-[var(--text)]">
+                        <dt className="inline font-semibold text-[var(--acc2)]">{port}</dt>
+                        <dd className="inline text-[var(--mute)]"> ← {asText(signal)}</dd>
                       </div>
                     ))}
                   </dl>
@@ -294,12 +270,10 @@ export default function RTLResultsView({ data, runId }) {
   const generatedCount = modules.filter(
     (module) => typeof module?.rtl_code === "string" && module.rtl_code.trim().length > 0,
   ).length;
-  const validatedCount = modules.filter(
-    (module) => (
-      module?.interface_validation_status
-        ? normalizedStatus(module.interface_validation_status) === "passed"
-        : normalizedStatus(module?.generation_status) === "completed"
-    ),
+  const validatedCount = modules.filter((module) =>
+    module?.interface_validation_status
+      ? normalizedStatus(module.interface_validation_status) === "passed"
+      : normalizedStatus(module?.generation_status) === "completed",
   ).length;
   const generationIssues = asList(result.generation_issues);
   const unresolvedIssues = asList(result.unresolved_issues);
@@ -307,20 +281,18 @@ export default function RTLResultsView({ data, runId }) {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-3xl border border-white/80 bg-white/80 p-5 shadow-card backdrop-blur">
+      <section className="rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#A879E5]">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--acc2)]">
               {result.experimental ? "Experimental RTL — Not Production Verified" : "RTL Generation"}
             </p>
-            <h3 className="mt-1 text-lg font-bold text-indigo">RTL Generation Results</h3>
+            <h3 className="mt-1 font-mono text-sm font-bold text-[var(--text)]">RTL Generation Results</h3>
             {result.module_name && (
-              <p className="mt-1 text-sm text-muted">
-                Top-level module: {result.module_name}
-              </p>
+              <p className="mt-1 font-mono text-xs text-[var(--mute)]">Top-level module: {result.module_name}</p>
             )}
             {result.language && (
-              <p className="mt-1 text-xs text-muted">Language: {result.language}</p>
+              <p className="mt-1 font-mono text-xs text-[var(--mute)]">Language: {result.language}</p>
             )}
           </div>
           <StatusBadge status={normalizedStatus(result.generation_status)} />
@@ -342,23 +314,23 @@ export default function RTLResultsView({ data, runId }) {
 
       <ComponentExplorer modules={modules} />
 
-      <section className="grid gap-4 rounded-3xl border border-white/80 bg-white/80 p-4 shadow-card backdrop-blur md:p-5">
+      <section className="grid gap-4 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4 md:p-5">
         <div>
-          <h3 className="text-lg font-bold text-indigo">Integrated Top-Level RTL</h3>
-          <p className="mt-1 text-sm text-muted">
+          <h3 className="font-mono text-sm font-bold text-[var(--text)]">Integrated Top-Level RTL</h3>
+          <p className="mt-1 font-mono text-xs text-[var(--mute)]">
             Integrated top-level wiring is available only when integration succeeds.
           </p>
           {runId && (
             <div className="mt-3 flex flex-wrap gap-2">
               <a
                 href={`/api/runs/${runId}/download/integrated_rtl.v`}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E9DDFB] bg-white px-3 py-1.5 text-xs font-semibold text-[#7540C5] hover:bg-[#F8F5FF]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
               >
                 ↓ integrated_rtl.v
               </a>
               <a
                 href={`/api/runs/${runId}/download/top_level_rtl.v`}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E9DDFB] bg-white px-3 py-1.5 text-xs font-semibold text-[#7540C5] hover:bg-[#F8F5FF]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
               >
                 ↓ top_level_rtl.v
               </a>
@@ -374,33 +346,19 @@ export default function RTLResultsView({ data, runId }) {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <StringList
-          title="Generation issues"
-          items={generationIssues}
-          emptyMessage="No generation issues were recorded."
-          tone="error"
-        />
-        <StringList
-          title="Unresolved issues"
-          items={unresolvedIssues}
-          emptyMessage="No unresolved issues were recorded."
-          tone="warning"
-        />
+        <StringList title="Generation issues" items={generationIssues} emptyMessage="No generation issues were recorded." tone="error" />
+        <StringList title="Unresolved issues" items={unresolvedIssues} emptyMessage="No unresolved issues were recorded." tone="warning" />
       </div>
-      <StringList
-        title="Assumptions"
-        items={assumptions}
-        emptyMessage="No assumptions were recorded."
-      />
+      <StringList title="Assumptions" items={assumptions} emptyMessage="No assumptions were recorded." />
     </div>
   );
 }
 
 function OverviewStat({ label, value }) {
   return (
-    <div className="rounded-2xl bg-[#F8F5FF] px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-xl font-bold text-indigo">{value}</div>
+    <div className="rounded-lg border border-[var(--line)] bg-[rgba(10,14,20,0.4)] px-4 py-3">
+      <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--mute)]">{label}</div>
+      <div className="mt-1 font-mono text-xl font-bold text-[var(--text)]">{value}</div>
     </div>
   );
 }
@@ -409,8 +367,8 @@ function StageStatus({ label, status, fallback }) {
   const value = status || fallback;
   if (!value) return null;
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-[#F8F5FF] px-3 py-2">
-      <span className="text-xs font-semibold text-muted">{label}</span>
+    <div className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[rgba(16,22,32,0.6)] px-3 py-2">
+      <span className="font-mono text-xs font-semibold text-[var(--mute)]">{label}</span>
       <StatusBadge status={normalizedStatus(value)} />
     </div>
   );

@@ -2,8 +2,8 @@ import { asList, asText } from "../lib/format";
 
 function Block({ title, children }) {
   return (
-    <section className="rounded-2xl border border-[#E9DDFB] bg-white p-4">
-      <h4 className="mb-3 text-sm font-bold text-indigo">{title}</h4>
+    <section className="rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4">
+      <h4 className="mb-3 font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">{title}</h4>
       {children}
     </section>
   );
@@ -11,10 +11,10 @@ function Block({ title, children }) {
 
 function Items({ values, ordered = false, empty = "None recorded." }) {
   const items = asList(values);
-  if (!items.length) return <p className="text-sm text-muted">{empty}</p>;
+  if (!items.length) return <p className="font-mono text-xs text-[var(--mute)]">{empty}</p>;
   const Tag = ordered ? "ol" : "ul";
   return (
-    <Tag className={`space-y-2 text-sm leading-6 text-[#4A3566] ${ordered ? "list-decimal pl-5" : "list-disc pl-5"}`}>
+    <Tag className={`space-y-1.5 font-mono text-xs leading-6 text-[var(--text)] ${ordered ? "list-decimal pl-5" : "list-disc pl-5"}`}>
       {items.map((item, index) => (
         <li key={`${index}-${String(item).slice(0, 24)}`}>{asText(item)}</li>
       ))}
@@ -27,15 +27,15 @@ export default function UnderstandingView({ data }) {
   return (
     <div className="grid gap-4">
       <Block title="System overview">
-        <p className="text-sm leading-6 text-[#4A3566]">{asText(record.system_purpose)}</p>
+        <p className="font-mono text-xs leading-6 text-[var(--text)]">{asText(record.system_purpose)}</p>
       </Block>
       <Block title="Major components">
         {asList(record.major_components).length === 0 ? (
-          <p className="text-sm text-muted">No components recorded.</p>
+          <p className="font-mono text-xs text-[var(--mute)]">No components recorded.</p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {asList(record.major_components).map((item, index) => (
-              <div key={`${index}-${item}`} className="rounded-xl bg-[#F8F5FF] px-3 py-2 text-sm font-medium text-indigo">
+              <div key={`${index}-${item}`} className="rounded-lg border border-[var(--line)] bg-[rgba(125,211,252,0.05)] px-3 py-2 font-mono text-xs font-medium text-[var(--acc)]">
                 {asText(item)}
               </div>
             ))}
@@ -58,11 +58,14 @@ export default function UnderstandingView({ data }) {
       </Block>
       <Block title="Ambiguities">
         {asList(record.ambiguities).length === 0 ? (
-          <p className="text-sm text-muted">No ambiguities recorded.</p>
+          <p className="font-mono text-xs text-[var(--mute)]">No ambiguities recorded.</p>
         ) : (
           <div className="space-y-2">
             {asList(record.ambiguities).map((item, index) => (
-              <div key={`${index}-${String(item).slice(0, 20)}`} className="rounded-xl border border-[#E7D7A1] bg-[#FFF8EA] px-3 py-2 text-sm leading-6 text-[#7A5B12]">
+              <div
+                key={`${index}-${String(item).slice(0, 20)}`}
+                className="rounded-lg border border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.07)] px-3 py-2 font-mono text-xs leading-6 text-[var(--warn)]"
+              >
                 {asText(item)}
               </div>
             ))}

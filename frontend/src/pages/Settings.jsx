@@ -15,12 +15,12 @@ export default function Settings() {
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-8">
       {/* Header */}
       <header className="mb-6">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#A879E5]">
+        <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[var(--acc2)]">
           <Settings2 size={13} />
           Settings
         </div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-indigo">Application Info</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">
+        <h1 className="mt-1 font-mono text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--text)]">Application Info</h1>
+        <p className="mt-2 text-xs text-[var(--mute)]">
           SPEC2RTL — multi-agent hardware specification to RTL pipeline.
         </p>
       </header>
@@ -30,12 +30,12 @@ export default function Settings() {
         {/* App info */}
         <div className="glass p-6">
           <div className="mb-4 flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#7540C5] text-white shadow-glow">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-to-br from-[var(--acc2)] to-[var(--acc)] text-[#05080d] font-mono font-extrabold">
               <Cpu size={18} />
             </span>
             <div>
-              <div className="font-bold text-indigo">SPEC2RTL</div>
-              <div className="text-xs text-muted">Version 1.0 · Multi-Agent Pipeline</div>
+              <div className="font-mono font-bold text-[var(--text)]">SPEC2RTL</div>
+              <div className="font-mono text-xs text-[var(--mute)]">Version 1.0 · Multi-Agent Pipeline</div>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -45,9 +45,9 @@ export default function Settings() {
               { label: "Dev server", value: "Vite · port 5173" },
               { label: "API proxy", value: "/api → 127.0.0.1:8000" },
             ].map((item) => (
-              <div key={item.label} className="rounded-2xl bg-[#F8F5FF] px-4 py-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{item.label}</div>
-                <div className="mt-1 text-sm font-semibold text-indigo">{item.value}</div>
+              <div key={item.label} className="rounded-lg border border-[var(--line)] bg-[rgba(16,22,32,0.6)] px-4 py-3">
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--mute)]">{item.label}</div>
+                <div className="mt-1 font-mono text-sm font-semibold text-[var(--text)]">{item.value}</div>
               </div>
             ))}
           </div>
@@ -55,16 +55,16 @@ export default function Settings() {
 
         {/* Pipeline stages */}
         <div className="glass p-6">
-          <h2 className="mb-4 text-sm font-bold text-indigo">Pipeline Stages</h2>
+          <h2 className="mb-4 font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">Pipeline Stages</h2>
           <div className="grid gap-2">
             {AGENTS.map((agent) => (
-              <div key={agent.n} className="flex items-start gap-3 rounded-xl bg-[#F8F5FF] px-4 py-3">
-                <span className="mt-0.5 shrink-0 rounded-lg bg-[#E9DDFB] px-2 py-0.5 text-xs font-bold text-[#7540C5]">
+              <div key={agent.n} className="flex items-start gap-3 rounded-lg border border-[var(--line)] bg-[rgba(16,22,32,0.6)] px-4 py-3">
+                <span className="mt-0.5 shrink-0 rounded-md border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.1)] px-2 py-0.5 font-mono text-xs font-bold text-[var(--acc2)]">
                   {agent.n}
                 </span>
                 <div>
-                  <div className="text-sm font-semibold text-indigo">{agent.name}</div>
-                  <div className="text-xs text-muted">{agent.desc}</div>
+                  <div className="font-mono text-sm font-semibold text-[var(--text)]">{agent.name}</div>
+                  <div className="mt-0.5 font-mono text-xs text-[var(--mute)]">{agent.desc}</div>
                 </div>
               </div>
             ))}
@@ -73,18 +73,17 @@ export default function Settings() {
 
         {/* Backend link */}
         <div className="glass p-6">
-          <h2 className="mb-3 text-sm font-bold text-indigo">Backend API</h2>
+          <h2 className="mb-3 font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">Backend API</h2>
           <a
             href="/api/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#7540C5] px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:bg-[#35145D]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--acc2)]/50 bg-[rgba(167,139,250,0.15)] px-4 py-2.5 font-mono text-xs font-semibold text-[var(--acc2)] transition hover:bg-[rgba(167,139,250,0.28)] hover:text-white"
           >
-            Open API Docs <ExternalLink size={14} />
+            Open API Docs <ExternalLink size={13} />
           </a>
         </div>
       </div>
     </div>
   );
 }
-

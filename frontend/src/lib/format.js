@@ -16,6 +16,31 @@ export function formatTime(value) {
   });
 }
 
+export function formatTokens(count) {
+  const value = Number(count);
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  return value.toLocaleString();
+}
+
+export function formatTokensCompact(count) {
+  const value = Number(count);
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  if (value < 1000) return String(value);
+  if (value < 1000000) return `${(value / 1000).toFixed(1)}k`;
+  return `${(value / 1000000).toFixed(2)}M`;
+}
+
+export function getAgentUsage(run, agentId) {
+  if (!run?.token_usage?.by_agent) return null;
+  const byAgent = run.token_usage.by_agent;
+  return (
+    byAgent[agentId] ||
+    (agentId === "decomposer" ? byAgent["decomposition"] : null) ||
+    (agentId === "rtl_verification" ? byAgent["verification"] : null) ||
+    null
+  );
+}
+
 export function asList(value) {
   if (Array.isArray(value)) {
     return value.filter((item) => item !== null && item !== undefined);

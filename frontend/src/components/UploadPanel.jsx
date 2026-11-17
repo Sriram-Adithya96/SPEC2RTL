@@ -50,22 +50,22 @@ export default function UploadPanel() {
     }
   }
 
-  /* Drop zone class: normal / drag-over / running-locked */
+  /* Drop zone styling matching reference dark theme */
   const zoneClass = [
-    "mt-4 flex w-full flex-col items-center rounded-2xl border-2 border-dashed",
-    "px-4 py-8 text-center transition",
+    "mt-4 flex w-full flex-col items-center rounded-xl border-2 border-dashed",
+    "px-4 py-8 text-center transition cursor-pointer",
     running
-      ? "cursor-not-allowed border-[#C5A6F2]/30 bg-[#F8F5FF]/30 opacity-60"
+      ? "cursor-not-allowed border-[var(--line)] bg-[rgba(10,14,20,0.2)] opacity-50"
       : dragOver
-        ? "border-[#7540C5] bg-[#C5A6F2]/25 scale-[1.01]"
-        : "border-[#C5A6F2] bg-[rgba(220,203,250,0.28)] hover:border-[#A879E5] hover:bg-[#DCCBFA]/25",
+        ? "border-[var(--acc)] bg-[rgba(125,211,252,0.08)] scale-[1.005]"
+        : "border-[#3b4c6b] bg-[rgba(10,14,20,0.4)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.04)]",
   ].join(" ");
 
   return (
     <div>
       {/* Title */}
-      <h2 className="text-xl font-bold tracking-tight text-indigo">Upload Hardware Specification</h2>
-      <p className="mt-1 text-sm text-muted">PDF or DOCX (≤ 20 MB)</p>
+      <h2 className="text-xl font-bold font-mono tracking-tight text-[var(--text)]">Upload Hardware Specification</h2>
+      <p className="mt-1 text-xs text-[var(--mute)]">PDF or DOCX (≤ 20 MB) · Automatic extraction & Verilog synthesis</p>
 
       {/* Drop zone */}
       <button
@@ -79,13 +79,13 @@ export default function UploadPanel() {
         className={zoneClass}
         style={{ minHeight: 44 }}
       >
-        <span className="grid h-13 w-13 place-items-center rounded-2xl bg-[#E9DDFB] p-3 text-[#7540C5]">
-          <CloudUpload size={26} />
+        <span className="grid h-12 w-12 place-items-center rounded-xl bg-[rgba(125,211,252,0.1)] p-3 text-[var(--acc)]">
+          <CloudUpload size={24} />
         </span>
-        <span className="mt-3 text-sm font-semibold text-indigo">
+        <span className="mt-3 text-sm font-semibold text-[var(--text)]">
           {dragOver ? "Drop to upload" : "Drag a specification here"}
         </span>
-        <span className="mt-1 text-xs text-muted">or click Browse Files below</span>
+        <span className="mt-1 text-xs text-[var(--mute)]">or click Browse Files below</span>
       </button>
 
       <input
@@ -98,18 +98,18 @@ export default function UploadPanel() {
 
       {/* Selected file chip */}
       {file && (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#E9DDFB] bg-white/70 px-4 py-3 backdrop-blur">
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.7)] px-4 py-3 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
-            <FileText className="shrink-0 text-[#7540C5]" size={18} />
+            <FileText className="shrink-0 text-[var(--acc)]" size={18} />
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-indigo">{file.name}</div>
-              <div className="text-xs text-muted">{fileKind(file)} · {formatBytes(file.size)}</div>
+              <div className="truncate text-sm font-semibold font-mono text-[var(--text)]">{file.name}</div>
+              <div className="text-xs text-[var(--mute)]">{fileKind(file)} · {formatBytes(file.size)}</div>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setFile(null)}
-            className="rounded-lg p-1.5 text-muted hover:bg-[#F8F5FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7540C5]"
+            className="rounded-lg p-1.5 text-[var(--mute)] hover:text-[var(--bad)] hover:bg-[rgba(248,113,113,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--acc)]"
             aria-label="Remove selected file"
             disabled={running}
             style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -120,51 +120,54 @@ export default function UploadPanel() {
       )}
 
       {/* Error message */}
-      {message && <p className="mt-3 text-sm text-[#8F1D1D]">{message}</p>}
+      {message && (
+        <p className="mt-3 rounded-lg border border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.1)] p-3 text-xs font-mono text-[var(--bad)]">
+          {message}
+        </p>
+      )}
 
       {/* Action buttons */}
       <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        {/* Browse Files — outlined purple */}
+        {/* Browse Files — ghost button */}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={running}
-          className="w-full sm:w-auto min-h-[44px] flex items-center justify-center rounded-xl border-2 border-[#7540C5] px-5 py-2.5 text-sm font-semibold text-[#7540C5] transition hover:bg-[#7540C5] hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7540C5] focus-visible:ring-offset-2"
+          className="w-full sm:w-auto min-h-[42px] flex items-center justify-center rounded-lg border border-[var(--line)] bg-transparent px-5 py-2 text-xs font-bold font-mono text-[var(--text)] transition hover:border-[var(--acc)] hover:text-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--acc)]"
         >
           Browse Files
         </button>
 
-        {/* Run Pipeline — purple gradient + lime underline accent when active; clear high-contrast disabled state with dashed border */}
+        {/* Run Pipeline — primary gradient accent */}
         <button
           type="button"
           onClick={submit}
           disabled={!file || running}
           title={!file ? "Select a specification file first" : undefined}
-          className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8F52F] focus-visible:ring-offset-2"
+          className="w-full sm:w-auto min-h-[42px] inline-flex items-center justify-center gap-2 rounded-lg px-6 py-2 text-xs font-bold font-mono transition disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--acc)]"
           style={
             !file || running
               ? {
-                  background: "#E9DDFB",
-                  color: "#35145D",
-                  border: "1.5px dashed #C5A6F2",
-                  boxShadow: "none",
+                  background: "rgba(36, 48, 68, 0.35)",
+                  color: "var(--mute, #7d8aa3)",
+                  border: "1px dashed var(--line, #243044)",
                   cursor: "not-allowed",
                 }
               : {
-                  background: "linear-gradient(135deg, #7540C5 0%, #35145D 100%)",
-                  color: "#FFFFFF",
+                  background: "linear-gradient(135deg, var(--acc2, #a78bfa), #6366f1)",
+                  color: "#ffffff",
                   border: "1px solid transparent",
-                  boxShadow: "0 2px 0 0 #C8F52F, 0 10px 28px rgba(117,64,197,0.32)",
+                  boxShadow: "0 4px 14px rgba(167, 139, 250, 0.35)",
                 }
           }
         >
           {running
-            ? <><Loader2 size={15} className="animate-spin" aria-hidden="true" />Pipeline running…</>
+            ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" />Pipeline running…</>
             : "Run Pipeline ▶"}
         </button>
 
         {running && (
-          <span className="text-xs text-muted text-center sm:text-left">A pipeline run is in progress.</span>
+          <span className="text-xs font-mono text-[var(--acc)] text-center sm:text-left">A pipeline run is in progress.</span>
         )}
       </div>
     </div>

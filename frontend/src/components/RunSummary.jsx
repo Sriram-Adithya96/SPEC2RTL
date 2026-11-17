@@ -1,4 +1,4 @@
-import { formatTime, stageProgress } from "../lib/format";
+import { formatTime, formatTokensCompact, stageProgress } from "../lib/format";
 import ErrorBanner from "./ErrorBanner";
 import StatusBadge from "./StatusBadge";
 
@@ -28,9 +28,9 @@ export default function RunSummary({ run }) {
       {/* Run header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Current run</div>
-          <h2 className="mt-1 text-lg font-bold text-indigo">{run.filename || "Specification"}</h2>
-          <p className="mt-1 text-xs text-muted">
+          <div className="font-mono text-xs font-semibold uppercase tracking-wider text-[var(--mute)]">Current run</div>
+          <h2 className="mt-1 font-mono text-lg font-bold text-[var(--text)]">{run.filename || "Specification"}</h2>
+          <p className="mt-1 font-mono text-xs text-[var(--mute)]">
             Started {formatTime(run.started_at)}
             {run.finished_at ? ` · Finished ${formatTime(run.finished_at)}` : ""}
             {run.source === "cli" ? " · Command-line run" : ""}
@@ -41,20 +41,24 @@ export default function RunSummary({ run }) {
 
       {/* Progress bar */}
       <div className="mt-4">
-        <div className="mb-1.5 flex justify-between text-xs font-semibold text-muted">
+        <div className="mb-1.5 flex justify-between font-mono text-xs font-semibold text-[var(--mute)]">
           <span>{run.ingestion === "running" ? "Reading specification" : "Pipeline progress"}</span>
-          <span>{progress}%</span>
+          <span className="text-[var(--acc)]">{progress}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-[#E9DDFB]">
+        <div className="h-2 overflow-hidden rounded-full bg-[#1b2535] border border-[var(--line)]/50">
           <div
-            className="h-full rounded-full bg-[#7540C5] shadow-glow transition-all duration-500"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${progress}%`,
+              background: "linear-gradient(90deg, var(--acc2, #a78bfa), var(--acc, #7dd3fc))",
+              boxShadow: "0 0 12px rgba(125, 211, 252, 0.4)",
+            }}
           />
         </div>
       </div>
 
       {/* Stat chips */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className={`mt-4 grid grid-cols-1 gap-3 ${run.token_usage?.total_tokens > 0 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         <StatChip
           label="Components described"
           value={summary?.components_described}
@@ -76,6 +80,14 @@ export default function RunSummary({ run }) {
               : "purple"
           }
         />
+        {run.token_usage?.total_tokens > 0 && (
+          <StatChip
+            label="Total Tokens"
+            value={formatTokensCompact(run.token_usage.total_tokens)}
+            subtext={`${formatTokensCompact(run.token_usage.prompt_tokens)} in · ${formatTokensCompact(run.token_usage.completion_tokens)} out`}
+            color="cyan"
+          />
+        )}
       </div>
 
       {/* Error */}
@@ -91,19 +103,21 @@ export default function RunSummary({ run }) {
   );
 }
 
-function StatChip({ label, value, color }) {
+function StatChip({ label, value, subtext, color }) {
   const colorMap = {
-    purple: "bg-[#EDE8FA] text-[#35145D]",
-    green:  "bg-[#D1FAE5] text-[#065F46]",
-    red:    "bg-[#FEE2E2] text-[#991B1B]",
-    amber:  "bg-[#FEF3C7] text-[#92400E]",
-    muted:  "bg-[#F8F5FF] text-muted",
+    purple: "bg-[rgba(167,139,250,0.08)] border border-[rgba(167,139,250,0.25)] text-[var(--acc2)]",
+    cyan:   "bg-[rgba(125,211,252,0.08)] border border-[rgba(125,211,252,0.25)] text-[var(--acc)]",
+    green:  "bg-[rgba(74,222,128,0.08)] border border-[rgba(74,222,128,0.25)] text-[var(--ok)]",
+    red:    "bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.25)] text-[var(--bad)]",
+    amber:  "bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)] text-[var(--warn)]",
+    muted:  "bg-[rgba(125,138,163,0.06)] border border-[var(--line)] text-[var(--mute)]",
   };
   const cls = colorMap[color] || colorMap.muted;
   return (
-    <div className={`rounded-2xl px-4 py-3 ${cls}`}>
-      <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</div>
-      <div className="mt-1 text-xl font-bold">{value ?? "—"}</div>
+    <div className={`rounded-xl px-4 py-3 ${cls}`}>
+      <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--mute)]">{label}</div>
+      <div className="mt-1 font-mono text-xl font-bold">{value ?? "—"}</div>
+      {subtext && <div className="mt-0.5 font-mono text-[10px] opacity-75">{subtext}</div>}
     </div>
   );
 }

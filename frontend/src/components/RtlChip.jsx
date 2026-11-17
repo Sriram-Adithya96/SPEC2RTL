@@ -30,20 +30,21 @@ export default function RtlChip({ size = 180 }) {
       ref={ref}
       aria-hidden="true"
       style={{
-        width: size, height: size,
+        width: size,
+        height: size,
         transition: "transform .15s ease-out",
-        filter: "drop-shadow(0 18px 26px rgba(117,64,197,.40))",
+        filter: "drop-shadow(0 16px 28px rgba(125,211,252,.15))",
       }}
     >
       <svg viewBox="0 0 200 200" width="100%" height="100%">
         <defs>
           <linearGradient id="chipBody" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#A879E5" />
-            <stop offset="1" stopColor="#35145D" />
+            <stop offset="0" stopColor="#1a2332" />
+            <stop offset="1" stopColor="#0a0e14" />
           </linearGradient>
           <linearGradient id="chipPin" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#DCCBFA" />
-            <stop offset="1" stopColor="#A879E5" />
+            <stop offset="0" stopColor="#7dd3fc" />
+            <stop offset="1" stopColor="#243044" />
           </linearGradient>
         </defs>
 
@@ -56,15 +57,40 @@ export default function RtlChip({ size = 180 }) {
           </g>
         ))}
 
-        <rect x="40" y="40" width="120" height="120" rx="20"
-              fill="url(#chipBody)" stroke="rgba(255,255,255,.35)" />
-        <rect x="64" y="64" width="72" height="72" rx="12"
-              fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.45)" />
-        <text x="100" y="108" textAnchor="middle" fill="#fff" fontSize="21" fontWeight="700"
-              fontFamily="'JetBrains Mono', ui-monospace, monospace">RTL</text>
+        <rect
+          x="40"
+          y="40"
+          width="120"
+          height="120"
+          rx="16"
+          fill="url(#chipBody)"
+          stroke="#243044"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="64"
+          y="64"
+          width="72"
+          height="72"
+          rx="10"
+          fill="rgba(125,211,252,0.06)"
+          stroke="rgba(125,211,252,0.3)"
+          strokeWidth="1"
+        />
+        <text
+          x="100"
+          y="108"
+          textAnchor="middle"
+          fill="#d6deeb"
+          fontSize="20"
+          fontWeight="800"
+          fontFamily="'JetBrains Mono', ui-monospace, monospace"
+        >
+          RTL
+        </text>
 
-        <circle cx="52" cy="52" r="3" fill="rgba(255,255,255,.7)" />
-        <circle cx="148" cy="52" r="4" fill="#C8F52F" />
+        <circle cx="52" cy="52" r="3" fill="rgba(125,211,252,0.7)" />
+        <circle cx="148" cy="52" r="3.5" fill="#4ade80" />
       </svg>
     </div>
   );

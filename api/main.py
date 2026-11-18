@@ -14,6 +14,7 @@ app = FastAPI(title="SPEC2RTL", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://spec2rtl.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:4173",

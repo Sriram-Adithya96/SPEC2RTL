@@ -1,8 +1,11 @@
+import { Square } from "lucide-react";
+import { useRuns } from "../context/RunContext";
 import { formatTime, formatTokensCompact, stageProgress } from "../lib/format";
 import ErrorBanner from "./ErrorBanner";
 import StatusBadge from "./StatusBadge";
 
 export default function RunSummary({ run }) {
+  const { cancelRun } = useRuns();
   if (!run) return null;
   const progress = stageProgress(run);
   const summary = run.summary;
@@ -36,7 +39,20 @@ export default function RunSummary({ run }) {
             {run.source === "cli" ? " · Command-line run" : ""}
           </p>
         </div>
-        <StatusBadge status={run.status || "pending"} />
+        <div className="flex items-center gap-2.5">
+          {run.status === "running" && (
+            <button
+              type="button"
+              onClick={() => cancelRun(run.run_id)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.15)] px-3 py-1 font-mono text-[11px] font-bold text-[var(--bad)] hover:bg-[rgba(248,113,113,0.25)] hover:border-[var(--bad)] transition shadow-sm"
+              title="Stop this active pipeline run"
+            >
+              <Square size={10} className="fill-[var(--bad)]" />
+              Stop Pipeline
+            </button>
+          )}
+          <StatusBadge status={run.status || "pending"} />
+        </div>
       </div>
 
       {/* Progress bar */}

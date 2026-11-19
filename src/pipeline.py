@@ -39,6 +39,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RUNS_ROOT = PROJECT_ROOT / "outputs" / "runs"
 
 
+class PipelineCancelledError(RuntimeError):
+    """Raised when the user requests cancellation of an active run."""
+    pipeline_stage = None
+
+
 def save_json(output_dir: Path, filename: str, data) -> Path:
     """Save agent output as JSON without changing the payload."""
 
@@ -729,6 +734,7 @@ def run_pipeline(
     *,
     strict_validation=False,
     usage_tracker_callback=None,
+    cancel_event=None,
 ):
     """Run the pipeline and write artifacts into ``output_dir``.
 
@@ -744,6 +750,10 @@ def run_pipeline(
         raise FileExistsError(
             f"Run directory already contains a manifest: {output_dir}"
         )
+
+    def check_cancelled():
+        if cancel_event is not None and cancel_event.is_set():
+            raise PipelineCancelledError("Pipeline was cancelled by user.")
 
     stage = "ingestion"
     component_state = []
@@ -864,6 +874,7 @@ def run_pipeline(
             status="completed",
             message="Specification loaded",
         )
+        check_cancelled()
 
         stage = "understanding"
         print("\n[1/7] Running Understanding Agent...")
@@ -873,6 +884,7 @@ def run_pipeline(
             status="running",
             message="Extracting requirements from the specification",
         )
+        check_cancelled()
         with usage_scope(usage_tracker, "understanding"):
             understanding_result = understand_specification(docs)
         print_stage("UNDERSTANDING AGENT OUTPUT", understanding_result)
@@ -885,6 +897,7 @@ def run_pipeline(
             status="completed",
             message="Understanding complete",
         )
+        check_cancelled()
 
         stage = "decomposer"
         print("\n[2/7] Running Decomposer Agent...")
@@ -894,6 +907,7 @@ def run_pipeline(
             status="running",
             message="Decomposing the design into components",
         )
+        check_cancelled()
         with usage_scope(usage_tracker, "decomposer"):
             decomposition_result = decomposer(understanding_result)
         print_stage("DECOMPOSER AGENT OUTPUT", decomposition_result)
@@ -906,6 +920,7 @@ def run_pipeline(
             status="completed",
             message=f"{len(decomposition_result.components)} component(s) identified",
         )
+        check_cancelled()
 
         stage = "description"
         print("\n[3/7] Running Description Agent...")
@@ -923,6 +938,7 @@ def run_pipeline(
         description_results = []
         total = len(decomposition_result.components)
         for index, component in enumerate(decomposition_result.components, start=1):
+            check_cancelled()
             current_component = component.name
             component_state[index - 1]["status"] = "running"
             print(f"\nDescribing component {index}: {component.name}")
@@ -964,6 +980,7 @@ def run_pipeline(
             message=f"{len(description_results)} component(s) described",
             components=list(component_state),
         )
+        check_cancelled()
 
         stage = "pseudocode"
         print("\n[4/7] Running Pseudocode Generation Agent...")
@@ -1059,6 +1076,7 @@ def run_pipeline(
         # artifact_paths["pseudocode_validation"] = "pseudocode_validation.json"
 
         # 5. RTL Generation Agent (Unified Hardware System RTL)
+        check_cancelled()
         stage = "rtl_generation"
         print("\n[5/7] Running RTL Generation Agent (Unified Hardware RTL)...")
         _emit(
@@ -1082,6 +1100,7 @@ def run_pipeline(
             )
 
         # 6. RTL Verification Agent
+        check_cancelled()
         stage = "rtl_verification"
         print("\n[6/7] Running RTL Verification Agent...")
         _emit(
@@ -1116,6 +1135,7 @@ def run_pipeline(
         reflection_history = []
 
         while not rtl_verification_result.valid and regeneration_attempts < max_regeneration_attempts:
+            check_cancelled()
             regeneration_attempts += 1
             print(
                 f"\n[7/7] Running Reflection Agent (Attempt {regeneration_attempts}/{max_regeneration_attempts})..."

@@ -185,6 +185,19 @@ export function RunProvider({ children }) {
     }
   }
 
+  async function cancelRun(runId = activeId) {
+    if (!runId) return;
+    try {
+      const response = await api.post(`/runs/${runId}/cancel`);
+      rememberActive(response.data);
+      stopLiveUpdates();
+      await refreshRuns();
+      return response.data;
+    } catch (error) {
+      setBanner(errorMessage(error, "Could not cancel the pipeline run."));
+    }
+  }
+
   async function loadOutput(agentId, requestedRunId = activeId) {
     if (!requestedRunId) return null;
     const state = active?.run_id === requestedRunId ? active?.agents?.[agentId] : null;
@@ -233,6 +246,7 @@ export function RunProvider({ children }) {
       setActiveId,
       refreshRuns,
       startRun,
+      cancelRun,
       loadOutput,
       running: starting || active?.status === "running",
     }),

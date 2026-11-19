@@ -59,6 +59,15 @@ def get_run(run_id: str) -> dict:
     return _require_run(run_id)
 
 
+@router.post("/{run_id}/cancel", response_model=RunMetadata)
+def cancel_run(run_id: str) -> dict:
+    _require_run(run_id)
+    try:
+        return manager.cancel_run(run_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Run not found.")
+
+
 @router.get("/{run_id}/events")
 async def run_events(run_id: str) -> StreamingResponse:
     _require_run(run_id)

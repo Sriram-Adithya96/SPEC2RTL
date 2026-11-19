@@ -53,6 +53,7 @@ function nodeStyle(status) {
         connector: "var(--acc, #7dd3fc)",
         pulse: true,
       };
+    case "cancelled":
     case "failed":
       return {
         border: "1.5px solid var(--bad, #f87171)",

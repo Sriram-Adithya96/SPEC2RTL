@@ -112,9 +112,9 @@ export function stageProgress(run) {
   const total = AGENTS.reduce((sum, agent) => {
     const state = run.agents?.[agent.id];
     const status = state?.status || "pending";
-    // completed, failed, blocked, and skipped all count as a finished stage.
+    // completed, failed, blocked, skipped, and cancelled all count as a finished stage.
     // A skipped Reflection Agent must not make a successful run appear incomplete.
-    if (["completed", "failed", "blocked", "skipped"].includes(status)) {
+    if (["completed", "failed", "blocked", "skipped", "cancelled"].includes(status)) {
       return sum + 1;
     }
     if (status === "running") {

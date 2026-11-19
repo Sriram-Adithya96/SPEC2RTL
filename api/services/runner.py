@@ -182,6 +182,7 @@ class RunManager:
         self._runs: dict[str, dict] = {}
         self._subscribers: dict[str, list[queue.Queue]] = {}
         self._spec_paths: dict[str, Path] = {}
+        self._cancel_events: dict[str, threading.Event] = {}
         RUNS_DIR.mkdir(parents=True, exist_ok=True)
         self._load_existing()
         self._import_cli_snapshot()
@@ -329,22 +330,24 @@ class RunManager:
         spec_path = upload_dir / safe_name
         spec_path.write_bytes(payload)
 
+        cancel_event = threading.Event()
         metadata = empty_metadata(run_id, Path(filename).name, len(payload), suffix)
         with self._lock:
             self._runs[run_id] = metadata
             self._spec_paths[run_id] = spec_path
+            self._cancel_events[run_id] = cancel_event
         self._write(metadata)
 
         thread = threading.Thread(
             target=self._execute,
-            args=(run_id, spec_path, run_dir),
+            args=(run_id, spec_path, run_dir, cancel_event),
             name=f"spec2rtl-{run_id[:8]}",
             daemon=True,
         )
         thread.start()
         return copy.deepcopy(metadata)
 
-    def _execute(self, run_id: str, spec_path: Path, run_dir: Path) -> None:
+    def _execute(self, run_id: str, spec_path: Path, run_dir: Path, cancel_event: threading.Event) -> None:
         usage_tracker: UsageTracker | None = None
 
         def persist_usage(metadata: dict) -> None:
@@ -373,15 +376,17 @@ class RunManager:
                 run_dir,
                 progress_callback=callback,
                 usage_tracker_callback=tracker_ready,
+                cancel_event=cancel_event,
             )
         except BaseException as error:
             message = f"{type(error).__name__}: {error}"
             stage = getattr(error, "pipeline_stage", None)
+            is_cancelled = cancel_event.is_set() or "cancelled" in message.lower()
 
             def mark_failed(metadata: dict) -> None:
-                metadata["status"] = "failed"
+                metadata["status"] = "cancelled" if is_cancelled else "failed"
                 metadata["finished_at"] = utc_now()
-                metadata["error"] = metadata.get("error") or message
+                metadata["error"] = "Pipeline cancelled by user." if is_cancelled else (metadata.get("error") or message)
                 if stage and not metadata.get("failed_stage"):
                     metadata["failed_stage"] = stage
                 _skip_pending_agents(metadata, after=metadata.get("failed_stage"))
@@ -425,6 +430,32 @@ class RunManager:
         with self._lock:
             metadata = self._runs.get(run_id)
             return copy.deepcopy(metadata) if metadata else None
+
+    def cancel_run(self, run_id: str) -> dict:
+        self._validate_id(run_id)
+        with self._lock:
+            metadata = self._runs.get(run_id)
+            if metadata is None:
+                raise KeyError(run_id)
+            if metadata.get("status") != "running":
+                return copy.deepcopy(metadata)
+            event = self._cancel_events.get(run_id)
+            if event:
+                event.set()
+            metadata["status"] = "cancelled"
+            metadata["finished_at"] = utc_now()
+            metadata["error"] = "Pipeline cancelled by user."
+            for agent in metadata.get("agents", {}).values():
+                if agent.get("status") == "running":
+                    agent["status"] = "cancelled"
+                    agent["finished_at"] = utc_now()
+                    agent["message"] = "Cancelled by user"
+                elif agent.get("status") == "pending":
+                    agent["status"] = "skipped"
+            self._enqueue(run_id, metadata)
+            snapshot = copy.deepcopy(metadata)
+        self._write(snapshot)
+        return snapshot
 
     def run_dir(self, run_id: str) -> Path:
         self._validate_id(run_id)

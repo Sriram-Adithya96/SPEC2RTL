@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, errorMessage } from "../api";
+import { api, apiUrl, errorMessage } from "../api";
 
 const RunContext = createContext(null);
 
@@ -55,7 +55,7 @@ export function RunProvider({ children }) {
 
   function watchRun(runId) {
     stopLiveUpdates();
-    const source = new EventSource(`/api/runs/${runId}/events`);
+    const source = new EventSource(apiUrl(`/runs/${runId}/events`));
     sourceRef.current = source;
     source.onmessage = (event) => {
       const payload = JSON.parse(event.data);
@@ -147,7 +147,7 @@ export function RunProvider({ children }) {
     ) {
       return cached;
     }
-    const response = await fetch(`/api/runs/${requestedRunId}/outputs/${agentId}`);
+    const response = await fetch(apiUrl(`/runs/${requestedRunId}/outputs/${agentId}`));
     if (!response.ok) {
       let detail = "This output is not available yet.";
       try {

@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { apiUrl } from "../api";
 import { useRuns } from "../context/RunContext";
 import { AGENTS, formatTime, formatTokens, formatTokensCompact, getAgentUsage } from "../lib/format";
 import DecompositionView from "../views/DecompositionView";
@@ -395,7 +396,7 @@ export default function AgentBoard({ run }) {
                           {/* Download link */}
                           {runId && (
                             <a
-                              href={`/api/runs/${runId}/download/${agent.file}`}
+                              href={apiUrl(`/runs/${runId}/download/${agent.file}`)}
                               className="text-xs font-semibold font-mono text-[var(--acc)] hover:text-white"
                             >
                               Download {agent.file}
@@ -424,7 +425,7 @@ export default function AgentBoard({ run }) {
                             filename={agent.file}
                             downloadHref={
                               runId
-                                ? `/api/runs/${runId}/download/${agent.file}`
+                                ? apiUrl(`/runs/${runId}/download/${agent.file}`)
                                 : undefined
                             }
                           />

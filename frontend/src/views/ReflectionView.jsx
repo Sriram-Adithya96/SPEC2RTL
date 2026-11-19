@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 
 function Block({ title, children }) {
   return (
@@ -131,8 +132,8 @@ export default function ReflectionView({ data, runId }) {
       for (let n = 1; n <= 3; n++) {
         try {
           const [refResp, verResp] = await Promise.all([
-            fetch(`/api/runs/${runId}/download/reflection_attempt_${n}.json`),
-            fetch(`/api/runs/${runId}/download/rtl_verification_attempt_${n}.json`),
+            fetch(apiUrl(`/runs/${runId}/download/reflection_attempt_${n}.json`)),
+            fetch(apiUrl(`/runs/${runId}/download/rtl_verification_attempt_${n}.json`)),
           ]);
           const refOk = refResp.ok;
           const verOk = verResp.ok;

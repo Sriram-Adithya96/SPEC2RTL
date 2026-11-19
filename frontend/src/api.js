@@ -1,9 +1,16 @@
-
 import axios from "axios";
 
+const rawBase = import.meta.env.VITE_API_BASE_URL;
+export const API_BASE = rawBase ? `${rawBase.replace(/\/+$/, "")}/api` : "/api";
+
 export const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
+  baseURL: API_BASE,
 });
+
+export function apiUrl(path = "") {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${cleanPath}`;
+}
 
 export function errorMessage(error, fallback) {
   const detail = error?.response?.data?.detail;

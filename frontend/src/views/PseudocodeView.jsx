@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 import CodeViewer from "../components/CodeViewer";
 import StatusBadge from "../components/StatusBadge";
 import { asList, asText } from "../lib/format";
@@ -100,14 +101,14 @@ export default function PseudocodeView({ data, runId }) {
     let cancelled = false;
     async function loadRaw() {
       if (!runId) return;
-      const index = await fetch(`/api/runs/${runId}/outputs`);
+      const index = await fetch(apiUrl(`/runs/${runId}/outputs`));
       if (!index.ok) return;
       const body = await index.json();
       if (!body.artifacts?.includes("pseudocode_raw.txt")) {
         if (!cancelled) setHasRaw(false);
         return;
       }
-      const response = await fetch(`/api/runs/${runId}/download/pseudocode_raw.txt`);
+      const response = await fetch(apiUrl(`/runs/${runId}/download/pseudocode_raw.txt`));
       if (!response.ok || cancelled) return;
       const text = await response.text();
       if (!cancelled) {
@@ -171,7 +172,7 @@ export default function PseudocodeView({ data, runId }) {
         <section className="rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.6)] p-4">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--mute)]">Raw model response</h4>
-            <a href={`/api/runs/${runId}/download/pseudocode_raw.txt`} className="font-mono text-xs font-semibold text-[var(--acc)] hover:underline">
+            <a href={apiUrl(`/runs/${runId}/download/pseudocode_raw.txt`)} className="font-mono text-xs font-semibold text-[var(--acc)] hover:underline">
               Download pseudocode_raw.txt
             </a>
           </div>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "../components/ErrorBanner";
 import StatusBadge from "../components/StatusBadge";
-import { api, errorMessage } from "../api";
+import { api, apiUrl, errorMessage } from "../api";
 import { useRuns } from "../context/RunContext";
 import { formatBytes, formatTime, formatTokensCompact } from "../lib/format";
 
@@ -115,7 +115,7 @@ export default function History() {
                 {(files[run.run_id] || []).map((filename) => (
                   <a
                     key={filename}
-                    href={`/api/runs/${run.run_id}/download/${filename}`}
+                    href={apiUrl(`/runs/${run.run_id}/download/${filename}`)}
                     className="rounded-md border border-[var(--line)] bg-[rgba(36,48,68,0.5)] px-2.5 py-1 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:text-[var(--text)] transition"
                   >
                     {filename}

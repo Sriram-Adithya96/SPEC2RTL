@@ -1,4 +1,4 @@
-import { Cpu, FileEdit, History, LayoutDashboard, LogIn, LogOut, PanelsTopLeft, Settings, User, X } from "lucide-react";
+import { Cpu, FileEdit, History, LayoutDashboard, LogOut, PanelsTopLeft, Settings, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -71,8 +71,8 @@ export default function Sidebar({ open, onClose }) {
           })}
         </nav>
 
-        {/* User Auth Section */}
-        {isAuthenticated && user ? (
+        {/* User Profile & Sign Out */}
+        {user && (
           <div className="mx-3 mb-2 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.65)] p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -88,22 +88,11 @@ export default function Sidebar({ open, onClose }) {
                 type="button"
                 onClick={logout}
                 title="Sign Out"
-                className="rounded-lg p-1.5 text-[var(--mute)] hover:text-[var(--bad)] hover:bg-[rgba(248,113,113,0.1)] transition shrink-0"
+                className="rounded-lg p-1.5 text-[var(--mute)] hover:text-[var(--bad)] hover:bg-[rgba(248,113,113,0.1)] transition shrink-0 cursor-pointer"
               >
                 <LogOut size={14} />
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="mx-3 mb-2">
-            <NavLink
-              to="/login"
-              onClick={onClose}
-              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--acc)]/40 bg-[rgba(125,211,252,0.08)] px-3 py-2.5 font-mono text-xs font-bold text-[var(--acc)] transition hover:bg-[rgba(125,211,252,0.15)]"
-            >
-              <LogIn size={14} />
-              Sign In / Register
-            </NavLink>
           </div>
         )}
 

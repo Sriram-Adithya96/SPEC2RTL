@@ -3,18 +3,33 @@ import { useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import BinaryBackground from "./components/BinaryBackground";
 import Sidebar from "./components/Sidebar";
+import { useAuth } from "./context/AuthContext";
 import { useRuns } from "./context/RunContext";
 import Composer from "./pages/Composer";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { banner, setBanner } = useRuns();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Initial authentication check
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#060814] text-[var(--acc)] font-mono text-xs select-none">
+        <span className="animate-pulse tracking-[0.2em] uppercase font-bold">&gt; INITIALIZING SPEC2RTL…</span>
+      </div>
+    );
+  }
+
+  // Gate the entire application: Show creative login page when not authenticated
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <>
@@ -50,8 +65,6 @@ export default function App() {
           )}
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
             <Route path="/results" element={<Results />} />
             <Route path="/history" element={<History />} />
             <Route path="/composer" element={<Composer />} />

@@ -42,7 +42,14 @@ def register(payload: UserRegister) -> dict:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please provide a valid email address.",
         )
-    existing = users.find_one({"email": email})
+    try:
+        existing = users.find_one({"email": email})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {exc}",
+        )
+
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,7 +63,13 @@ def register(payload: UserRegister) -> dict:
         "password_hash": hash_password(payload.password),
         "created_at": now,
     }
-    result = users.insert_one(user_doc)
+    try:
+        result = users.insert_one(user_doc)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {exc}",
+        )
     user_id = str(result.inserted_id)
     user_doc["_id"] = user_id
 
@@ -78,7 +91,13 @@ def login(payload: UserLogin) -> dict:
         )
 
     email = payload.email.strip().lower()
-    user_doc = users.find_one({"email": email})
+    try:
+        user_doc = users.find_one({"email": email})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {exc}",
+        )
     if not user_doc or not verify_password(payload.password, user_doc.get("password_hash", "")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

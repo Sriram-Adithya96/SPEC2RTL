@@ -72,6 +72,8 @@ export function AuthProvider({ children }) {
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem("spec2rtl-my-runs");
+      sessionStorage.removeItem("spec2rtl-active-run");
     } catch {}
   }
 

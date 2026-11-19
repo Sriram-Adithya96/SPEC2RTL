@@ -60,6 +60,7 @@ class RunSummary(BaseModel):
 
 class RunMetadata(BaseModel):
     run_id: str
+    user_id: str | None = None
     filename: str
     file_size: int
     file_type: str

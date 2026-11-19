@@ -320,7 +320,7 @@ class RunManager:
         self._write(snapshot)
         return snapshot
 
-    def create_run(self, filename: str, payload: bytes) -> dict:
+    def create_run(self, filename: str, payload: bytes, user_id: str | None = None) -> dict:
         run_id = uuid.uuid4().hex
         suffix = Path(filename).suffix.lower()
         safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(filename).name) or f"specification{suffix}"
@@ -332,6 +332,8 @@ class RunManager:
 
         cancel_event = threading.Event()
         metadata = empty_metadata(run_id, Path(filename).name, len(payload), suffix)
+        if user_id:
+            metadata["user_id"] = user_id
         with self._lock:
             self._runs[run_id] = metadata
             self._spec_paths[run_id] = spec_path
@@ -419,9 +421,12 @@ class RunManager:
 
         self._update(run_id, mark_completed)
 
-    def list_runs(self) -> list[dict]:
+    def list_runs(self, user_id: str | None = None) -> list[dict]:
         with self._lock:
             runs = [copy.deepcopy(item) for item in self._runs.values()]
+        if user_id is not None:
+            # Only return runs belonging to this user
+            runs = [r for r in runs if r.get("user_id") == user_id]
         runs.sort(key=lambda item: item.get("started_at") or "", reverse=True)
         return runs
 

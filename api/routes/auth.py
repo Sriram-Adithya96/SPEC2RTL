@@ -36,6 +36,11 @@ def register(payload: UserRegister) -> dict:
         )
 
     email = payload.email.strip().lower()
+    if "@" not in email or "." not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address.",
+        )
     existing = users.find_one({"email": email})
     if existing:
         raise HTTPException(

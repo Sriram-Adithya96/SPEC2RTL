@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status, Header
 
-from api.database import get_users_collection
+from api.database import get_users_collection, get_connection_error
 from api.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
 from api.services.auth import (
     create_access_token,
@@ -30,9 +30,10 @@ def _user_to_response(doc: dict) -> UserResponse:
 def register(payload: UserRegister) -> dict:
     users = get_users_collection()
     if users is None:
+        detail = get_connection_error() or "Database connection is not configured or unavailable."
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection is not configured or unavailable.",
+            detail=detail,
         )
 
     email = payload.email.strip().lower()
@@ -70,9 +71,10 @@ def register(payload: UserRegister) -> dict:
 def login(payload: UserLogin) -> dict:
     users = get_users_collection()
     if users is None:
+        detail = get_connection_error() or "Database connection is not configured or unavailable."
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection is not configured or unavailable.",
+            detail=detail,
         )
 
     email = payload.email.strip().lower()

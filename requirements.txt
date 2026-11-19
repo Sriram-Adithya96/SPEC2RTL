@@ -9,6 +9,7 @@ langchain_huggingface
 fastapi
 uvicorn
 python-multipart
-pymongo
+pymongo[srv]
+dnspython
 bcrypt
 pyjwt

@@ -8,18 +8,24 @@ from pymongo.database import Database
 
 _client: MongoClient | None = None
 _db: Database | None = None
+_last_error: str | None = None
 
 DB_NAME = "spec2rtl"
 
 
+def get_connection_error() -> str | None:
+    return _last_error
+
+
 def get_db() -> Database | None:
     """Return the active MongoDB database instance, or None if not configured."""
-    global _client, _db
+    global _client, _db, _last_error
     if _db is not None:
         return _db
 
-    uri = os.getenv("MONGODB_URI", "").strip()
+    uri = os.getenv("MONGODB_URI", "").strip().strip("'\"")
     if not uri:
+        _last_error = "MONGODB_URI environment variable is not set."
         return None
 
     try:
@@ -27,9 +33,11 @@ def get_db() -> Database | None:
         # Verify connection
         _client.admin.command("ping")
         _db = _client[DB_NAME]
+        _last_error = None
         return _db
     except Exception as exc:
-        print(f"[MongoDB Warning] Could not connect to MongoDB: {exc}")
+        _last_error = f"{type(exc).__name__}: {exc}"
+        print(f"[MongoDB Warning] Could not connect to MongoDB: {_last_error}")
         _client = None
         _db = None
         return None

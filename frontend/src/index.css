@@ -1,0 +1,246 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Reference Dark Theme Tokens ────────────────────────── */
+:root {
+  color-scheme: dark;
+  --bg: #0a0e14;
+  --panel: rgba(16, 22, 32, 0.82);
+  --panel-solid: #101620;
+  --line: #243044;
+  --text: #d6deeb;
+  --mute: #7d8aa3;
+  --acc: #7dd3fc;
+  --acc2: #a78bfa;
+  --ok: #4ade80;
+  --bad: #f87171;
+  --warn: #fbbf24;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: Inter, system-ui, sans-serif;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* ── Base HTML & Body ───────────────────────────────────── */
+html {
+  min-height: 100%;
+  background-color: var(--bg);
+  color-scheme: dark;
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography mappings ────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--mono);
+  letter-spacing: -0.01em;
+}
+
+button, a, input, select, textarea {
+  font-family: var(--mono);
+}
+
+/* ── Sidebar dark surface ───────────────────────────────── */
+aside {
+  background: rgba(10, 14, 20, 0.92);
+  border-color: var(--line) !important;
+  box-shadow: 10px 0 36px rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+@media (min-width: 768px) {
+  aside {
+    background: rgba(10, 14, 20, 0.88);
+  }
+}
+
+/* ── Unified Dark Card Panel (.glass, .glass-card, .card) ─ */
+.glass, .glass-card, .card {
+  position: relative;
+  background: var(--panel) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  border: 1px solid var(--line) !important;
+  border-radius: 20px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+  color: var(--text);
+}
+
+.glass:hover, .glass-card:hover, .card:hover {
+  border-color: rgba(125, 211, 252, 0.45) !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Light-theme element overrides inside dark theme ───── */
+/* Turn white backgrounds inside views into sleek dark sub-panels */
+.bg-white,
+[class*="bg-[#F8F5FF]"],
+[class*="bg-[#EDE8FA]"],
+[class*="bg-[#E9DDFB]"] {
+  background-color: rgba(16, 22, 32, 0.70) !important;
+  color: var(--text) !important;
+}
+
+/* Replace light purple/pink borders with reference --line */
+[class*="border-[#E9DDFB]"],
+[class*="border-[#D8CCF0]"],
+[class*="border-[#DCCBFA]"],
+[class*="border-[#C5A6F2]"] {
+  border-color: var(--line) !important;
+}
+
+/* Text overrides: old purple/navy text colors to dark theme tokens */
+.text-indigo,
+[class*="text-[#35145D]"],
+[class*="text-[#4A3566]"] {
+  color: var(--text) !important;
+}
+
+.text-muted,
+[class*="text-[#A879E5]"],
+[class*="text-[#7d8aa3]"] {
+  color: var(--mute) !important;
+}
+
+/* ── Buttons matching reference dark ────────────────────── */
+.btn-dark {
+  font: 600 14px var(--mono);
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 10px 18px;
+  color: var(--text);
+  background: transparent;
+  border: 1.5px solid var(--acc2);
+  transition: all 0.2s ease;
+}
+.btn-dark:hover {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: var(--acc);
+  color: #ffffff;
+}
+
+.btn-run {
+  border: 1.5px dashed var(--line);
+  color: var(--mute);
+  font: 600 14px var(--mono);
+  border-radius: 12px;
+  padding: 10px 18px;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+.btn-run:hover:not(:disabled) {
+  border-color: var(--acc);
+  color: var(--acc);
+  background: rgba(125, 211, 252, 0.08);
+}
+
+/* ── Progress bar matching reference ────────────────────── */
+.bar-dark {
+  height: 6px;
+  border-radius: 4px;
+  background: #1b2535;
+  overflow: hidden;
+}
+.bar-dark div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--acc2), var(--acc));
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.4);
+}
+
+/* ── Error container matching reference ─────────────────── */
+.err-dark {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: #fca5a5;
+}
+
+/* ── Accordion expand animation ─────────────────────────── */
+.expand-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms ease;
+}
+
+.expand-panel.open {
+  grid-template-rows: 1fr;
+}
+
+.expand-panel > div {
+  overflow: hidden;
+}
+
+/* ── RTL chip float animation ───────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-14px) rotate(-2deg); }
+}
+
+.chip-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* ── Pipeline node pulse (running) ──────────────────────── */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0.55); }
+  50%       { box-shadow: 0 0 0 8px rgba(125, 211, 252, 0); }
+}
+
+.node-running {
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+/* ── Connector line shimmer (running) ───────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.connector-running {
+  background: linear-gradient(90deg, var(--acc2) 25%, var(--acc) 50%, var(--acc2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e14;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mute);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expand-panel      { transition: none; }
+  .chip-float        { animation: none; }
+  .node-running      { animation: none; }
+  .connector-running { animation: none; }
+  .animate-spin      { animation: none !important; }
+  .animate-pulse     { animation: none !important; }
+}

@@ -10,8 +10,21 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.pipeline import AGENT_ORDER, run_pipeline
-from src.llm.llm import UsageTracker
+
+AGENT_ORDER = [
+    "understanding",
+    "decomposer",
+    "description",
+    "pseudocode",
+    "rtl_generation",
+    "rtl_verification",
+    "reflection",
+]
+
+
+class UsageTracker:
+    def snapshot(self) -> dict:
+        return {}
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUTS = ROOT / "outputs"
@@ -38,10 +51,18 @@ DOWNLOADABLE = {
     "rtl_generation.json",
     "rtl_verification.json",
     "reflection.json",
+    "reflection_attempt_1.json",
+    "reflection_attempt_2.json",
+    "reflection_attempt_3.json",
+    "rtl_verification_attempt_1.json",
+    "rtl_verification_attempt_2.json",
+    "rtl_verification_attempt_3.json",
     "specification.txt",
     "pseudocode_validation.json",
     "integrated_rtl.v",
     "top_level_rtl.v",
+    "integrated_rtl.vhd",
+    "top_level_rtl.vhd",
     "compilation.log",
     "pipeline_summary.json",
     "run_manifest.json",
@@ -368,6 +389,8 @@ class RunManager:
             self._update(run_id, update_metadata)
 
         try:
+            from src.pipeline import run_pipeline
+
             summary = run_pipeline(
                 spec_path,
                 run_dir,
@@ -399,6 +422,10 @@ class RunManager:
             )
             metadata["finished_at"] = utc_now()
             metadata["summary"] = summary
+            for agent in metadata["agents"].values():
+                if agent["status"] == "pending":
+                    agent["status"] = "skipped"
+                    agent["finished_at"] = metadata["finished_at"]
             persist_usage(metadata)
             if overall_status == "failed" and not metadata.get("error"):
                 metadata["error"] = (

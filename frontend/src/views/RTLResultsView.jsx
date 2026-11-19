@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import StatusBadge from "../components/StatusBadge";
 import { asList, asText } from "../lib/format";
 
@@ -265,6 +265,24 @@ function IntegratedInstances({ instances }) {
 }
 
 export default function RTLResultsView({ data, runId }) {
+  const [availableFiles, setAvailableFiles] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!runId) {
+      setAvailableFiles([]);
+      return undefined;
+    }
+    fetch(`/api/runs/${runId}/outputs`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((index) => {
+        if (!cancelled) setAvailableFiles(index?.files || []);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableFiles([]);
+      });
+    return () => { cancelled = true; };
+  }, [runId]);
+
   const result = data && typeof data === "object" && !Array.isArray(data) ? data : {};
   const modules = Array.isArray(result.component_modules) ? result.component_modules : [];
   const generatedCount = modules.filter(
@@ -320,20 +338,19 @@ export default function RTLResultsView({ data, runId }) {
           <p className="mt-1 font-mono text-xs text-[var(--mute)]">
             Integrated top-level wiring is available only when integration succeeds.
           </p>
-          {runId && (
+          {runId && ["integrated_rtl.v", "integrated_rtl.vhd", "top_level_rtl.v", "top_level_rtl.vhd"].some((file) => availableFiles.includes(file)) && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                href={`/api/runs/${runId}/download/integrated_rtl.v`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
-              >
-                ↓ integrated_rtl.v
-              </a>
-              <a
-                href={`/api/runs/${runId}/download/top_level_rtl.v`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
-              >
-                ↓ top_level_rtl.v
-              </a>
+              {["integrated_rtl.v", "integrated_rtl.vhd", "top_level_rtl.v", "top_level_rtl.vhd"]
+                .filter((file) => availableFiles.includes(file))
+                .map((file) => (
+                  <a
+                    key={file}
+                    href={`/api/runs/${runId}/download/${file}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
+                  >
+                    ↓ {file}
+                  </a>
+                ))}
             </div>
           )}
         </div>

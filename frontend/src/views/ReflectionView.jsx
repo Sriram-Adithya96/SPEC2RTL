@@ -128,21 +128,27 @@ export default function ReflectionView({ data, runId }) {
     async function loadAttempts() {
       setLoadingAttempts(true);
       const loaded = [];
+      const indexResponse = await fetch(`/api/runs/${runId}/outputs`);
+      if (!indexResponse.ok) throw new Error("Could not list run outputs.");
+      const index = await indexResponse.json();
+      const available = new Set(index.files || []);
       for (let n = 1; n <= 3; n++) {
-        try {
-          const [refResp, verResp] = await Promise.all([
-            fetch(`/api/runs/${runId}/download/reflection_attempt_${n}.json`),
-            fetch(`/api/runs/${runId}/download/rtl_verification_attempt_${n}.json`),
-          ]);
-          const refOk = refResp.ok;
-          const verOk = verResp.ok;
-          if (!refOk && !verOk) break;
-          const refData = refOk ? await refResp.json().catch(() => null) : null;
-          const verData = verOk ? await verResp.json().catch(() => null) : null;
-          if (refData || verData) loaded.push({ n, reflection: refData, verification: verData });
-        } catch (_e) {
-          break;
-        }
+        const reflectionFile = `reflection_attempt_${n}.json`;
+        const verificationFile = `rtl_verification_attempt_${n}.json`;
+        const hasReflection = available.has(reflectionFile);
+        const hasVerification = available.has(verificationFile);
+        if (!hasReflection && !hasVerification) break;
+        const [refResp, verResp] = await Promise.all([
+          hasReflection
+            ? fetch(`/api/runs/${runId}/download/${reflectionFile}`)
+            : Promise.resolve(null),
+          hasVerification
+            ? fetch(`/api/runs/${runId}/download/${verificationFile}`)
+            : Promise.resolve(null),
+        ]);
+        const refData = refResp?.ok ? await refResp.json().catch(() => null) : null;
+        const verData = verResp?.ok ? await verResp.json().catch(() => null) : null;
+        if (refData || verData) loaded.push({ n, reflection: refData, verification: verData });
       }
       if (!cancelled) {
         setAttemptHistory(loaded);

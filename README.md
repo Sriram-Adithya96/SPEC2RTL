@@ -1,5 +1,18 @@
 # Spec2RTL
 
+## Run the API
+
+From the repository root, install `requirements.txt`, set `SPEC2RTL_OPENROUTER_KEY`
+in `.env`, then start the backend with:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000`; health checks are served at
+`/health` and `/api/health`. Set `CORS_ORIGINS` to a comma-separated list of
+frontend origins when deploying the API.
+
 Spec2RTL is a Python-based multi-agent workflow for turning a hardware specification document into a structured understanding, a component decomposition, canonical pseudocode, generated implementation code, and a static verification summary. The current implementation is centered on a LangGraph pipeline defined in `src/orchestrator.py` and uses LLM-backed agent calls through LangChain.
 
 This repository is best understood as a forward-pass prototype: it loads a PDF or DOCX specification, extracts the relevant requirements, breaks the system into component descriptions, synthesizes pseudocode, generates code, and performs static verification. It does not currently implement the full reflection-and-repair loop described in the project concept documents.

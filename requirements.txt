@@ -11,3 +11,7 @@ pymupdf
 qdrant-client
 langchain-qdrant
 langchain-openrouter
+langgraph
+fastapi
+uvicorn[standard]
+python-multipart

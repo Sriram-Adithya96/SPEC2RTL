@@ -16,3 +16,10 @@ tests/*
 Spec2RTL-Agent-README.md
 .history/
 outputs/
+*_backup_*/
+*.zip
+*.patch
+protected_agents_diff.txt
+running.txt
+reference_dark/
+ui-reference/

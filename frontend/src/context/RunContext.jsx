@@ -2,9 +2,39 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { api, apiUrl, errorMessage } from "../api";
 
 const RunContext = createContext(null);
+const STORAGE_KEY = "spec2rtl-my-runs";
+
+function getStoredMyRunIds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const activeFromSession = sessionStorage.getItem("spec2rtl-active-run");
+    if (activeFromSession && !parsed.includes(activeFromSession)) {
+      parsed.unshift(activeFromSession);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      } catch {}
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+function persistMyRunId(runId) {
+  try {
+    const existing = getStoredMyRunIds();
+    if (!existing.includes(runId)) {
+      const updated = [runId, ...existing];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
+  } catch {}
+}
 
 export function RunProvider({ children }) {
-  const [runs, setRuns] = useState([]);
+  const [allRuns, setAllRuns] = useState([]);
+  const [myRunIds, setMyRunIds] = useState(getStoredMyRunIds);
+  const [scope, setScope] = useState("my"); // "my" | "all"
   const [activeId, setActiveId] = useState(
     () => sessionStorage.getItem("spec2rtl-active-run") || null,
   );
@@ -15,10 +45,19 @@ export function RunProvider({ children }) {
   const sourceRef = useRef(null);
   const pollRef = useRef(null);
 
+  // Filter runs created on this browser
+  const myRuns = useMemo(() => {
+    return allRuns.filter((r) => myRunIds.includes(r.run_id));
+  }, [allRuns, myRunIds]);
+
+  // Runs exposed to views based on scope ("my" by default)
+  const runs = scope === "all" ? allRuns : myRuns;
+
   async function refreshRuns() {
     const response = await api.get("/runs");
-    setRuns(response.data.runs || []);
-    return response.data.runs || [];
+    const items = response.data.runs || [];
+    setAllRuns(items);
+    return items;
   }
 
   function rememberActive(run) {
@@ -76,11 +115,20 @@ export function RunProvider({ children }) {
   useEffect(() => {
     refreshRuns()
       .then((items) => {
-        if (activeId && items.some((item) => item.run_id === activeId)) {
+        const storedIds = getStoredMyRunIds();
+        // If the activeId is already one of this browser's runs and still valid on the server, keep it
+        if (activeId && storedIds.includes(activeId) && items.some((item) => item.run_id === activeId)) {
           return;
         }
-        if (items[0]) {
-          setActiveId(items[0].run_id);
+        // Otherwise, only auto-select the latest run belonging to THIS browser
+        const myLatest = items.find((item) => storedIds.includes(item.run_id));
+        if (myLatest) {
+          setActiveId(myLatest.run_id);
+        } else {
+          // Brand new visitor (e.g. friend) starts with a clean slate
+          setActiveId(null);
+          setActive(null);
+          sessionStorage.removeItem("spec2rtl-active-run");
         }
       })
       .catch((error) => {
@@ -121,8 +169,11 @@ export function RunProvider({ children }) {
       const response = await api.post("/runs", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      const newId = response.data.run_id;
+      persistMyRunId(newId);
+      setMyRunIds((current) => (current.includes(newId) ? current : [newId, ...current]));
       setOutputs({});
-      setActiveId(response.data.run_id);
+      setActiveId(newId);
       await refreshRuns();
       return response.data;
     } catch (error) {
@@ -169,6 +220,10 @@ export function RunProvider({ children }) {
   const value = useMemo(
     () => ({
       runs,
+      allRuns,
+      myRuns,
+      scope,
+      setScope,
       active,
       activeId,
       outputs,
@@ -181,7 +236,7 @@ export function RunProvider({ children }) {
       loadOutput,
       running: starting || active?.status === "running",
     }),
-    [runs, active, activeId, outputs, starting, banner],
+    [runs, allRuns, myRuns, scope, active, activeId, outputs, starting, banner],
   );
 
   return <RunContext.Provider value={value}>{children}</RunContext.Provider>;

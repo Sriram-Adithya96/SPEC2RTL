@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ────────────────────────────────────────── */
+:root {
+  --s2r-100: #F8F5FF;
+  --s2r-200: #DCCBFA;
+  --s2r-300: #C5A6F2;
+  --s2r-400: #A879E5;
+  --s2r-500: #7540C5;
+  --s2r-900: #35145D;
+  --s2r-accent: #C8F52F;
+}
+
+/* ── Page gradient lives on html so it stays fixed ────────── */
+html {
+  min-height: 100%;
+  background-color: #F8F5FF;
+  background-image:
+    radial-gradient(ellipse 900px 500px at -5% 5%,  rgba(220, 203, 250, 0.60) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 400px at 105% 0%, rgba(197, 166, 242, 0.40) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 350px at 50% 110%,rgba(220, 203, 250, 0.35) 0%, transparent 60%);
+  background-attachment: fixed;
+}
+
+/* ── Body: fully transparent — canvas + html gradient shows ─ */
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #35145d;
+  background: transparent;
+}
+
+button, a, input, select {
+  font: inherit;
+}
+
+/* ── Sidebar glass ─────────────────────────────────────────── */
+/* aside {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(233, 221, 251, 0.70);
+  box-shadow: 10px 0 36px rgba(117, 64, 197, 0.07);
+  backdrop-filter: blur(20px);
+} */
+aside {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(117, 64, 197, 0.14);
+  box-shadow: 10px 0 36px rgba(117, 64, 197, 0.07);
+  -webkit-backdrop-filter: blur(4px) saturate(160%);
+  backdrop-filter: blur(4px) saturate(180%);
+}
+@media (min-width: 768px) {
+  aside { background: rgba(255, 255, 255, 0.5); }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  aside { background: rgba(255, 255, 255, 0.94); }
+}
+
+/* ── Glass card — unified styles matching glass.css .glass ──  */
+/* Replace old glass-card so no element needs both classes.     */
+/* Elements that want cursor-glow must use class="glass" so     */
+/* ParticleBackground's JS selector (".glass") can find them.   */
+.glass-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(53, 20, 93, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 121, 229, 0.55);
+  box-shadow: 0 16px 48px rgba(117, 64, 197, 0.18), inset 0 1px 0 #fff;
+}
+/* glass-card-hover is now a no-op — hover is built into glass-card */
+.glass-card-hover {}
+
+/* ── Legacy shadow helpers ─────────────────────────────────── */
+.shadow-card {
+  box-shadow:
+    0 16px 40px rgba(53, 20, 93, 0.06),
+    0 0 28px rgba(197, 166, 242, 0.25);
+}
+
+.shadow-glow {
+  box-shadow: 0 10px 28px rgba(117, 64, 197, 0.32);
+}
+
+/* ── Purple logo circle glow (sidebar) ─────────────────────── */
+[class*="bg-[#7540C5]"].rounded-full {
+  box-shadow: 0 0 12px rgba(117, 64, 197, 0.45);
+}
+
+/* ── Accordion expand animation ────────────────────────────── */
+.expand-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms ease;
+}
+
+.expand-panel.open {
+  grid-template-rows: 1fr;
+}
+
+.expand-panel > div {
+  overflow: hidden;
+}
+
+/* ── RTL chip float animation ──────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-14px) rotate(-2deg); }
+}
+
+.chip-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* ── Pipeline node pulse (running) ─────────────────────────── */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(117, 64, 197, 0.55); }
+  50%       { box-shadow: 0 0 0 8px rgba(117, 64, 197, 0); }
+}
+
+.node-running {
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+/* ── Connector line shimmer (running) ──────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.connector-running {
+  background: linear-gradient(90deg, #c5a6f2 25%, #7540C5 50%, #c5a6f2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expand-panel      { transition: none; }
+  .chip-float        { animation: none; }
+  .node-running      { animation: none; }
+  .connector-running { animation: none; }
+  .animate-spin      { animation: none !important; }
+  .animate-pulse     { animation: none !important; }
+}

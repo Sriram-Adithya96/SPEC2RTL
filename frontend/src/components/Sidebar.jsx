@@ -1,5 +1,6 @@
-import { Cpu, FileEdit, History, LayoutDashboard, PanelsTopLeft, Settings, X } from "lucide-react";
+import { Cpu, FileEdit, History, LayoutDashboard, LogIn, LogOut, PanelsTopLeft, Settings, User, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const LINKS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -10,6 +11,7 @@ const LINKS = [
 ];
 
 export default function Sidebar({ open, onClose }) {
+  const { user, isAuthenticated, logout } = useAuth();
   return (
     <>
       {open && (
@@ -68,6 +70,42 @@ export default function Sidebar({ open, onClose }) {
             );
           })}
         </nav>
+
+        {/* User Auth Section */}
+        {isAuthenticated && user ? (
+          <div className="mx-3 mb-2 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.65)] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgba(125,211,252,0.15)] text-[var(--acc)] font-mono text-xs font-bold shrink-0">
+                  {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-xs font-bold text-[var(--text)]">{user.username}</div>
+                  <div className="truncate font-mono text-[10px] text-[var(--mute)]">{user.email}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                title="Sign Out"
+                className="rounded-lg p-1.5 text-[var(--mute)] hover:text-[var(--bad)] hover:bg-[rgba(248,113,113,0.1)] transition shrink-0"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-3 mb-2">
+            <NavLink
+              to="/login"
+              onClick={onClose}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--acc)]/40 bg-[rgba(125,211,252,0.08)] px-3 py-2.5 font-mono text-xs font-bold text-[var(--acc)] transition hover:bg-[rgba(125,211,252,0.15)]"
+            >
+              <LogIn size={14} />
+              Sign In / Register
+            </NavLink>
+          </div>
+        )}
 
         {/* Footer badge */}
         <div className="m-4 rounded-xl border border-[var(--line)] bg-[rgba(16,22,32,0.65)] px-3.5 py-3 text-[11px] font-mono leading-5 text-[var(--mute)]">

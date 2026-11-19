@@ -7,6 +7,16 @@ export const api = axios.create({
   baseURL: API_BASE,
 });
 
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem("spec2rtl_auth_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {}
+  return config;
+});
+
 export function apiUrl(path = "") {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE}${cleanPath}`;

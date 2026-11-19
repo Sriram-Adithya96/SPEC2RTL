@@ -9,3 +9,6 @@ langchain_huggingface
 fastapi
 uvicorn
 python-multipart
+pymongo
+bcrypt
+pyjwt

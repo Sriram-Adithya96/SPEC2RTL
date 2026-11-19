@@ -7,6 +7,8 @@ import { useRuns } from "./context/RunContext";
 import Composer from "./pages/Composer";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 
@@ -48,6 +50,8 @@ export default function App() {
           )}
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/results" element={<Results />} />
             <Route path="/history" element={<History />} />
             <Route path="/composer" element={<Composer />} />

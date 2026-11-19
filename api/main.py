@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 from api.routes.runs import router as runs_router
+from api.routes.auth import router as auth_router
 from api.schemas.runs import HealthResponse
 
 app = FastAPI(title="SPEC2RTL", version="1.0.0")
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(runs_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
 
 
 @app.get("/health", response_model=HealthResponse)

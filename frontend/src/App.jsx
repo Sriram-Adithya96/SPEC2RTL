@@ -1,6 +1,6 @@
 import { Menu } from "lucide-react";
-import { useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import BinaryBackground from "./components/BinaryBackground";
 import Sidebar from "./components/Sidebar";
 import { useAuth } from "./context/AuthContext";
@@ -16,6 +16,20 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { banner, setBanner } = useRuns();
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  // Dynamic document title based on current page
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const titles = {
+      "/": "Dashboard · SPEC2RTL",
+      "/results": "Pipeline Results · SPEC2RTL",
+      "/history": "Run History · SPEC2RTL",
+      "/composer": "Composer · SPEC2RTL",
+      "/settings": "Settings · SPEC2RTL",
+    };
+    document.title = titles[location.pathname] || "SPEC2RTL";
+  }, [isAuthenticated, location.pathname]);
 
   // Initial authentication check
   if (loading) {

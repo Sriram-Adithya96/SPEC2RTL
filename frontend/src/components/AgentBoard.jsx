@@ -37,6 +37,7 @@ const ICONS = {
 /** Map agent status → pipeline node styles */
 function nodeStyle(status) {
   switch (status) {
+    case "passed":
     case "completed":
       return {
         border: "1.5px solid var(--ok, #4ade80)",

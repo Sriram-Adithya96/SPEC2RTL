@@ -54,3 +54,28 @@ def get_users_collection() -> Collection | None:
             pass
         return col
     return None
+
+
+def get_runs_collection() -> Collection | None:
+    db = get_db()
+    if db is not None:
+        col = db["runs"]
+        try:
+            col.create_index("run_id", unique=True)
+            col.create_index("user_id")
+        except Exception:
+            pass
+        return col
+    return None
+
+
+def get_artifacts_collection() -> Collection | None:
+    db = get_db()
+    if db is not None:
+        col = db["run_artifacts"]
+        try:
+            col.create_index([("run_id", 1), ("filename", 1)], unique=True)
+        except Exception:
+            pass
+        return col
+    return None

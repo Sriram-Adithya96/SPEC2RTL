@@ -9,14 +9,25 @@ export default function RunSummary({ run }) {
   if (!run) return null;
   const progress = stageProgress(run);
   const summary = run.summary;
+  const rtlVerifRaw = summary?.rtl_verification || run.agents?.rtl_verification?.status;
+  const rtlVerifValid =
+    summary?.rtl_verification_valid ??
+    (rtlVerifRaw === "passed" || rtlVerifRaw === "completed"
+      ? true
+      : rtlVerifRaw === "failed"
+        ? false
+        : null);
 
-  const rtlVerifValid = summary?.rtl_verification_valid;
-  const rtlVerifStatus = run.agents?.rtl_verification?.status;
   let rtlVerifLabel = "—";
-  if (rtlVerifValid === true) rtlVerifLabel = "Passed ✓";
-  else if (rtlVerifValid === false) rtlVerifLabel = "Failed ✗";
-  else if (rtlVerifStatus === "running") rtlVerifLabel = "Running";
-  else if (rtlVerifStatus === "pending") rtlVerifLabel = "Pending";
+  if (rtlVerifValid === true || rtlVerifRaw === "passed" || rtlVerifRaw === "completed") {
+    rtlVerifLabel = "Passed ✓";
+  } else if (rtlVerifValid === false || rtlVerifRaw === "failed") {
+    rtlVerifLabel = "Failed ✗";
+  } else if (rtlVerifRaw === "running") {
+    rtlVerifLabel = "Running";
+  } else if (rtlVerifRaw === "pending") {
+    rtlVerifLabel = "Pending";
+  }
 
   const reflectionStatus = run.agents?.reflection?.status;
   let reflectionLabel = "—";

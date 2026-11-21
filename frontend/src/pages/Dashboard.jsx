@@ -35,7 +35,11 @@ export default function Dashboard() {
   // Compute metric values
   const totalRuns = runs.length;
   const verifiedCount = runs.filter(
-    (r) => r.summary?.rtl_verification_valid === true
+    (r) =>
+      r.summary?.rtl_verification === "passed" ||
+      r.summary?.rtl_verification_valid === true ||
+      r.agents?.rtl_verification?.status === "passed" ||
+      r.agents?.rtl_verification?.status === "completed",
   ).length;
   const totalTokens = runs.reduce(
     (acc, r) => acc + (r.token_usage?.total_tokens || 0),

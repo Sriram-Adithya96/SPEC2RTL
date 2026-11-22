@@ -28,6 +28,11 @@ const STYLES = {
     Icon: AlertCircle,
     spin: false,
   },
+  cancelled: {
+    pill: "bg-[rgba(248,113,113,0.12)] text-[var(--bad)] border border-[rgba(248,113,113,0.35)]",
+    Icon: MinusCircle,
+    spin: false,
+  },
   blocked: {
     pill: "bg-[rgba(251,191,36,0.12)] text-[var(--warn)] border border-[rgba(251,191,36,0.35)]",
     Icon: AlertCircle,

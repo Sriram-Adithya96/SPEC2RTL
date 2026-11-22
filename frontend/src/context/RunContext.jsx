@@ -1,13 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, errorMessage } from "../api";
+import { api, apiUrl, errorMessage } from "../api";
+import { useAuth } from "./AuthContext";
 
 const RunContext = createContext(null);
 
 export function RunProvider({ children }) {
+  const { user } = useAuth();
   const [runs, setRuns] = useState([]);
-  const [activeId, setActiveId] = useState(
-    () => sessionStorage.getItem("spec2rtl-active-run") || null,
-  );
+  const [activeId, setActiveId] = useState(null);
   const [active, setActive] = useState(null);
   const [outputs, setOutputs] = useState({});
   const [starting, setStarting] = useState(false);
@@ -16,9 +16,14 @@ export function RunProvider({ children }) {
   const pollRef = useRef(null);
 
   async function refreshRuns() {
-    const response = await api.get("/runs");
-    setRuns(response.data.runs || []);
-    return response.data.runs || [];
+    try {
+      const response = await api.get("/runs");
+      const items = response.data.runs || [];
+      setRuns(items);
+      return items;
+    } catch {
+      return [];
+    }
   }
 
   function rememberActive(run) {
@@ -43,7 +48,7 @@ export function RunProvider({ children }) {
       try {
         const response = await api.get(`/runs/${runId}`);
         rememberActive(response.data);
-        if (["completed", "failed"].includes(response.data.status)) {
+        if (["completed", "failed", "cancelled"].includes(response.data.status)) {
           stopLiveUpdates();
           refreshRuns().catch(() => {});
         }
@@ -55,13 +60,13 @@ export function RunProvider({ children }) {
 
   function watchRun(runId) {
     stopLiveUpdates();
-    const source = new EventSource(`/api/runs/${runId}/events`);
+    const source = new EventSource(apiUrl(`/runs/${runId}/events`));
     sourceRef.current = source;
     source.onmessage = (event) => {
       const payload = JSON.parse(event.data);
       if (payload.type === "heartbeat" || !payload.metadata) return;
       rememberActive(payload.metadata);
-      if (["completed", "failed"].includes(payload.metadata.status)) {
+      if (["completed", "failed", "cancelled"].includes(payload.metadata.status)) {
         stopLiveUpdates();
         refreshRuns().catch(() => {});
       }
@@ -73,22 +78,18 @@ export function RunProvider({ children }) {
     };
   }
 
+  // When user signs in, changes, or signs out:
+  // Reset active run to null so Dashboard is always clean and outputs are empty!
   useEffect(() => {
-    refreshRuns()
-      .then((items) => {
-        if (activeId && items.some((item) => item.run_id === activeId)) {
-          return;
-        }
-        if (items[0]) {
-          setActiveId(items[0].run_id);
-        }
-      })
-      .catch((error) => {
-        setBanner(errorMessage(error, "The API is not reachable."));
-      });
+    setActiveId(null);
+    setActive(null);
+    setOutputs({});
+    sessionStorage.removeItem("spec2rtl-active-run");
+    refreshRuns();
     return () => stopLiveUpdates();
-  }, []);
+  }, [user?.id]);
 
+  // When a run is activated (either started by user or selected from Run History)
   useEffect(() => {
     if (!activeId) {
       setActive(null);
@@ -121,16 +122,39 @@ export function RunProvider({ children }) {
       const response = await api.post("/runs", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setOutputs({});
-      setActiveId(response.data.run_id);
+      const metadata = response.data;
+      setActiveId(metadata.run_id);
+      setActive({
+        run_id: metadata.run_id,
+        filename: file.name,
+        file_size: file.size,
+        file_type: file.name.endsWith(".docx") ? ".docx" : ".pdf",
+        started_at: new Date().toISOString(),
+        status: metadata.status || "running",
+        ingestion: "pending",
+        agents: {},
+      });
       await refreshRuns();
-      return response.data;
+      watchRun(metadata.run_id);
+      return metadata.run_id;
     } catch (error) {
-      const message = errorMessage(error, "The pipeline could not be started.");
+      const message = errorMessage(error, "Could not submit this specification.");
       setBanner(message);
       throw new Error(message);
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function cancelRun(runId = activeId) {
+    if (!runId) return;
+    try {
+      const response = await api.post(`/runs/${runId}/cancel`);
+      rememberActive(response.data);
+      stopLiveUpdates();
+      await refreshRuns();
+    } catch (error) {
+      setBanner(errorMessage(error, "Could not cancel the pipeline."));
     }
   }
 
@@ -147,7 +171,11 @@ export function RunProvider({ children }) {
     ) {
       return cached;
     }
-    const response = await fetch(`/api/runs/${requestedRunId}/outputs/${agentId}`);
+
+    const token = localStorage.getItem("spec2rtl_auth_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch(apiUrl(`/runs/${requestedRunId}/outputs/${agentId}`), { headers });
+
     if (!response.ok) {
       let detail = "This output is not available yet.";
       try {
@@ -169,6 +197,10 @@ export function RunProvider({ children }) {
   const value = useMemo(
     () => ({
       runs,
+      allRuns: runs,
+      myRuns: runs,
+      scope: "my",
+      setScope: () => {},
       active,
       activeId,
       outputs,
@@ -178,6 +210,7 @@ export function RunProvider({ children }) {
       setActiveId,
       refreshRuns,
       startRun,
+      cancelRun,
       loadOutput,
       running: starting || active?.status === "running",
     }),

@@ -1,19 +1,33 @@
+import { Square } from "lucide-react";
+import { useRuns } from "../context/RunContext";
 import { formatTime, formatTokensCompact, stageProgress } from "../lib/format";
 import ErrorBanner from "./ErrorBanner";
 import StatusBadge from "./StatusBadge";
 
 export default function RunSummary({ run }) {
+  const { cancelRun } = useRuns();
   if (!run) return null;
   const progress = stageProgress(run);
   const summary = run.summary;
+  const rtlVerifRaw = summary?.rtl_verification || run.agents?.rtl_verification?.status;
+  const rtlVerifValid =
+    summary?.rtl_verification_valid ??
+    (rtlVerifRaw === "passed" || rtlVerifRaw === "completed"
+      ? true
+      : rtlVerifRaw === "failed"
+        ? false
+        : null);
 
-  const rtlVerifValid = summary?.rtl_verification_valid;
-  const rtlVerifStatus = run.agents?.rtl_verification?.status;
   let rtlVerifLabel = "—";
-  if (rtlVerifValid === true) rtlVerifLabel = "Passed ✓";
-  else if (rtlVerifValid === false) rtlVerifLabel = "Failed ✗";
-  else if (rtlVerifStatus === "running") rtlVerifLabel = "Running";
-  else if (rtlVerifStatus === "pending") rtlVerifLabel = "Pending";
+  if (rtlVerifValid === true || rtlVerifRaw === "passed" || rtlVerifRaw === "completed") {
+    rtlVerifLabel = "Passed ✓";
+  } else if (rtlVerifValid === false || rtlVerifRaw === "failed") {
+    rtlVerifLabel = "Failed ✗";
+  } else if (rtlVerifRaw === "running") {
+    rtlVerifLabel = "Running";
+  } else if (rtlVerifRaw === "pending") {
+    rtlVerifLabel = "Pending";
+  }
 
   const reflectionStatus = run.agents?.reflection?.status;
   let reflectionLabel = "—";
@@ -36,7 +50,20 @@ export default function RunSummary({ run }) {
             {run.source === "cli" ? " · Command-line run" : ""}
           </p>
         </div>
-        <StatusBadge status={run.status || "pending"} />
+        <div className="flex items-center gap-2.5">
+          {run.status === "running" && (
+            <button
+              type="button"
+              onClick={() => cancelRun(run.run_id)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.15)] px-3 py-1 font-mono text-[11px] font-bold text-[var(--bad)] hover:bg-[rgba(248,113,113,0.25)] hover:border-[var(--bad)] transition shadow-sm"
+              title="Stop this active pipeline run"
+            >
+              <Square size={10} className="fill-[var(--bad)]" />
+              Stop Pipeline
+            </button>
+          )}
+          <StatusBadge status={run.status || "pending"} />
+        </div>
       </div>
 
       {/* Progress bar */}

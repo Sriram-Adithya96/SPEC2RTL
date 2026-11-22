@@ -3,12 +3,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "../components/ErrorBanner";
 import StatusBadge from "../components/StatusBadge";
-import { api, errorMessage } from "../api";
+import { api, apiUrl, errorMessage } from "../api";
 import { useRuns } from "../context/RunContext";
 import { formatBytes, formatTime, formatTokensCompact } from "../lib/format";
 
 export default function History() {
-  const { runs, setActiveId, refreshRuns } = useRuns();
+  const { runs, allRuns, myRuns, scope, setScope, setActiveId, refreshRuns } = useRuns();
   const navigate = useNavigate();
   const [files, setFiles] = useState({});
   const [openId, setOpenId] = useState(null);
@@ -54,6 +54,32 @@ export default function History() {
           Refresh
         </button>
       </header>
+
+      {/* ── Scope filter tabs (My Runs vs All Server Runs) ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setScope("my")}
+          className={`rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition ${
+            scope === "my"
+              ? "bg-[var(--acc)] text-black font-bold shadow-sm"
+              : "border border-[var(--line)] bg-[rgba(16,22,32,0.6)] text-[var(--mute)] hover:text-white hover:border-[var(--acc)]"
+          }`}
+        >
+          My Runs ({myRuns?.length || 0})
+        </button>
+        <button
+          type="button"
+          onClick={() => setScope("all")}
+          className={`rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition ${
+            scope === "all"
+              ? "bg-[var(--acc)] text-black font-bold shadow-sm"
+              : "border border-[var(--line)] bg-[rgba(16,22,32,0.6)] text-[var(--mute)] hover:text-white hover:border-[var(--acc)]"
+          }`}
+        >
+          All Server Runs ({allRuns?.length || 0})
+        </button>
+      </div>
       {message && (
         <p className="rounded-lg border border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.08)] px-3 py-2 font-mono text-xs text-[var(--bad)]">
           {message}
@@ -115,7 +141,7 @@ export default function History() {
                 {(files[run.run_id] || []).map((filename) => (
                   <a
                     key={filename}
-                    href={`/api/runs/${run.run_id}/download/${filename}`}
+                    href={apiUrl(`/runs/${run.run_id}/download/${filename}`)}
                     className="rounded-md border border-[var(--line)] bg-[rgba(36,48,68,0.5)] px-2.5 py-1 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:text-[var(--text)] transition"
                   >
                     {filename}

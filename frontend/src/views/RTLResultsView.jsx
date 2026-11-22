@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { apiUrl } from "../api";
 import StatusBadge from "../components/StatusBadge";
 import { asList, asText } from "../lib/format";
 
@@ -323,13 +324,13 @@ export default function RTLResultsView({ data, runId }) {
           {runId && (
             <div className="mt-3 flex flex-wrap gap-2">
               <a
-                href={`/api/runs/${runId}/download/integrated_rtl.v`}
+                href={apiUrl(`/runs/${runId}/download/integrated_rtl.v`)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
               >
                 ↓ integrated_rtl.v
               </a>
               <a
-                href={`/api/runs/${runId}/download/top_level_rtl.v`}
+                href={apiUrl(`/runs/${runId}/download/top_level_rtl.v`)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 font-mono text-xs font-semibold text-[var(--acc)] hover:border-[var(--acc)] hover:bg-[rgba(125,211,252,0.06)] transition"
               >
                 ↓ top_level_rtl.v

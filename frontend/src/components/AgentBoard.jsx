@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { apiUrl } from "../api";
 import { useRuns } from "../context/RunContext";
 import { AGENTS, formatTime, formatTokens, formatTokensCompact, getAgentUsage } from "../lib/format";
 import DecompositionView from "../views/DecompositionView";
@@ -36,6 +37,7 @@ const ICONS = {
 /** Map agent status → pipeline node styles */
 function nodeStyle(status) {
   switch (status) {
+    case "passed":
     case "completed":
       return {
         border: "1.5px solid var(--ok, #4ade80)",
@@ -52,6 +54,7 @@ function nodeStyle(status) {
         connector: "var(--acc, #7dd3fc)",
         pulse: true,
       };
+    case "cancelled":
     case "failed":
       return {
         border: "1.5px solid var(--bad, #f87171)",
@@ -395,7 +398,7 @@ export default function AgentBoard({ run }) {
                           {/* Download link */}
                           {runId && (
                             <a
-                              href={`/api/runs/${runId}/download/${agent.file}`}
+                              href={apiUrl(`/runs/${runId}/download/${agent.file}`)}
                               className="text-xs font-semibold font-mono text-[var(--acc)] hover:text-white"
                             >
                               Download {agent.file}
@@ -424,7 +427,7 @@ export default function AgentBoard({ run }) {
                             filename={agent.file}
                             downloadHref={
                               runId
-                                ? `/api/runs/${runId}/download/${agent.file}`
+                                ? apiUrl(`/runs/${runId}/download/${agent.file}`)
                                 : undefined
                             }
                           />

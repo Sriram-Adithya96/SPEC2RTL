@@ -1,4 +1,4 @@
-import { CloudUpload, FileText, Loader2, X } from "lucide-react";
+import { CloudUpload, FileText, Loader2, Square, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useRuns } from "../context/RunContext";
 import { formatBytes } from "../lib/format";
@@ -13,7 +13,7 @@ function fileKind(file) {
 }
 
 export default function UploadPanel() {
-  const { startRun, running } = useRuns();
+  const { startRun, cancelRun, running } = useRuns();
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
@@ -167,7 +167,15 @@ export default function UploadPanel() {
         </button>
 
         {running && (
-          <span className="text-xs font-mono text-[var(--acc)] text-center sm:text-left">A pipeline run is in progress.</span>
+          <button
+            type="button"
+            onClick={() => cancelRun()}
+            className="w-full sm:w-auto min-h-[42px] inline-flex items-center justify-center gap-2 rounded-lg border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.15)] px-5 py-2 text-xs font-bold font-mono text-[var(--bad)] hover:bg-[rgba(248,113,113,0.25)] hover:border-[var(--bad)] transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bad)]"
+            title="Immediately cancel this active pipeline run"
+          >
+            <Square size={12} className="fill-[var(--bad)]" />
+            Stop Pipeline
+          </button>
         )}
       </div>
     </div>

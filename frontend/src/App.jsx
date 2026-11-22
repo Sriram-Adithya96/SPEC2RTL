@@ -1,18 +1,49 @@
 import { Menu } from "lucide-react";
-import { useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import BinaryBackground from "./components/BinaryBackground";
 import Sidebar from "./components/Sidebar";
+import { useAuth } from "./context/AuthContext";
 import { useRuns } from "./context/RunContext";
 import Composer from "./pages/Composer";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
+import Login from "./pages/Login";
 import Results from "./pages/Results";
 import Settings from "./pages/Settings";
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { banner, setBanner } = useRuns();
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  // Dynamic document title based on current page
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const titles = {
+      "/": "Dashboard · SPEC2RTL",
+      "/results": "Pipeline Results · SPEC2RTL",
+      "/history": "Run History · SPEC2RTL",
+      "/composer": "Composer · SPEC2RTL",
+      "/settings": "Settings · SPEC2RTL",
+    };
+    document.title = titles[location.pathname] || "SPEC2RTL";
+  }, [isAuthenticated, location.pathname]);
+
+  // Initial authentication check
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#060814] text-[var(--acc)] font-mono text-xs select-none">
+        <span className="animate-pulse tracking-[0.2em] uppercase font-bold">&gt; INITIALIZING SPEC2RTL…</span>
+      </div>
+    );
+  }
+
+  // Gate the entire application: Show creative login page when not authenticated
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <>

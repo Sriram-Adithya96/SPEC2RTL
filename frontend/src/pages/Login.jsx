@@ -5,8 +5,11 @@ import { errorMessage } from "../api";
 import RtlChipHero from "../components/RtlChipHero";
 
 export default function Login() {
-  const { login, register } = useAuth();
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const { login, register, resetPassword } = useAuth();
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register" | "forgot"
+
+  const isRegisterMode = authMode === "register";
+  const isForgotMode = authMode === "forgot";
 
   // Form states
   const [username, setUsername] = useState("");
@@ -16,13 +19,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
-    document.title = isRegisterMode
+    document.title = isForgotMode
+      ? "Reset password · Spec2RTL"
+      : isRegisterMode
       ? "Create account · Spec2RTL"
       : "Sign in · Spec2RTL";
-  }, [isRegisterMode]);
+  }, [authMode, isForgotMode, isRegisterMode]);
 
   function validate() {
     const errs = {};
@@ -35,8 +41,10 @@ export default function Login() {
     }
 
     if (!password) {
-      errs.password = "Please enter your password.";
-    } else if (isRegisterMode && password.length < 6) {
+      errs.password = isForgotMode
+        ? "Please enter a new password."
+        : "Please enter your password.";
+    } else if ((isRegisterMode || isForgotMode) && password.length < 6) {
       errs.password = "Password must be at least 6 characters.";
     }
 
@@ -44,6 +52,12 @@ export default function Login() {
       if (!username.trim()) {
         errs.username = "Please choose a username.";
       }
+      if (password !== confirmPassword) {
+        errs.confirmPassword = "Passwords do not match.";
+      }
+    }
+
+    if (isForgotMode) {
       if (password !== confirmPassword) {
         errs.confirmPassword = "Passwords do not match.";
       }
@@ -58,18 +72,27 @@ export default function Login() {
     if (loading) return; // Prevent double submits
 
     setError("");
+    setSuccessMessage("");
     if (!validate()) return;
 
     setLoading(true);
     try {
-      if (isRegisterMode) {
+      if (isForgotMode) {
+        await resetPassword(email.trim().toLowerCase(), password);
+        setSuccessMessage("Password reset successfully! Please sign in with your new password.");
+        setAuthMode("login");
+        setPassword("");
+        setConfirmPassword("");
+      } else if (isRegisterMode) {
         await register(email.trim().toLowerCase(), username.trim(), password);
       } else {
         await login(email.trim().toLowerCase(), password);
       }
     } catch (err) {
       const serverMsg = errorMessage(err, "");
-      if (isRegisterMode) {
+      if (isForgotMode) {
+        setError(serverMsg || "Could not reset password. Please verify your email.");
+      } else if (isRegisterMode) {
         setError(serverMsg || "Could not create account. Please try again.");
       } else {
         // Standard form-level alert for sign-in failure
@@ -82,7 +105,12 @@ export default function Login() {
 
   function handleForgotPassword() {
     if (loading) return;
-    setError("Password reset instructions will be sent to your email. (Feature coming soon)");
+    setError("");
+    setSuccessMessage("");
+    setFieldErrors({});
+    setPassword("");
+    setConfirmPassword("");
+    setAuthMode("forgot");
   }
 
   return (
@@ -143,13 +171,29 @@ export default function Login() {
 
             {/* Title & Subtitle in sentence case */}
             <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
-              {isRegisterMode ? "Create an account" : "Welcome back"}
+              {isForgotMode
+                ? "Reset password"
+                : isRegisterMode
+                ? "Create an account"
+                : "Welcome back"}
             </h1>
             <p className="text-xs text-[#94a3b8] leading-relaxed mb-6">
-              {isRegisterMode
+              {isForgotMode
+                ? "Enter your email and choose a new password."
+                : isRegisterMode
                 ? "Join Spec2RTL to store your pipeline runs & RTL designs."
                 : "Sign in to turn your hardware spec into verified Verilog."}
             </p>
+
+            {/* Form-level Success Banner */}
+            {successMessage && (
+              <div
+                role="status"
+                className="mb-5 rounded-xl border border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.12)] p-3 text-xs text-[#4ade80] leading-relaxed flex items-start gap-2 select-none"
+              >
+                <span>✓ {successMessage}</span>
+              </div>
+            )}
 
             {/* Form-level Error Alert Banner */}
             {error && (
@@ -233,13 +277,13 @@ export default function Login() {
               <div className="space-y-1.5">
                 <div className="relative">
                   <label htmlFor="login-password" className="sr-only">
-                    Password
+                    {isForgotMode ? "New password" : "Password"}
                   </label>
                   <input
                     id="login-password"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    autoComplete={isRegisterMode ? "new-password" : "current-password"}
+                    autoComplete={isRegisterMode || isForgotMode ? "new-password" : "current-password"}
                     disabled={loading}
                     value={password}
                     onChange={(e) => {
@@ -248,7 +292,7 @@ export default function Login() {
                         setFieldErrors((prev) => ({ ...prev, password: "" }));
                       }
                     }}
-                    placeholder="Password"
+                    placeholder={isForgotMode ? "New password" : "Password"}
                     className={`w-full rounded-xl pl-4 pr-16 py-3 text-xs text-white outline-none transition-all placeholder:text-[#cbd5e1] bg-[#0e1328] border ${
                       fieldErrors.password
                         ? "border-[#f87171] focus:ring-[#f87171]/40"
@@ -272,8 +316,8 @@ export default function Login() {
                   </p>
                 )}
 
-                {/* Forgot Password Link (right-aligned under password field) */}
-                {!isRegisterMode && (
+                {/* Forgot Password Link (right-aligned under password field in Login mode) */}
+                {authMode === "login" && (
                   <div className="flex justify-end pt-0.5">
                     <button
                       type="button"
@@ -287,11 +331,11 @@ export default function Login() {
                 )}
               </div>
 
-              {/* Confirm Password (Only in Register Mode) */}
-              {isRegisterMode && (
+              {/* Confirm Password (Only in Register or Forgot Password Mode) */}
+              {(isRegisterMode || isForgotMode) && (
                 <div>
                   <label htmlFor="login-confirm-password" className="sr-only">
-                    Confirm password
+                    {isForgotMode ? "Confirm new password" : "Confirm password"}
                   </label>
                   <input
                     id="login-confirm-password"
@@ -306,7 +350,7 @@ export default function Login() {
                         setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
                       }
                     }}
-                    placeholder="Confirm password"
+                    placeholder={isForgotMode ? "Confirm new password" : "Confirm password"}
                     className={`w-full rounded-xl px-4 py-3 text-xs text-white outline-none transition-all placeholder:text-[#cbd5e1] bg-[#0e1328] border ${
                       fieldErrors.confirmPassword
                         ? "border-[#f87171] focus:ring-[#f87171]/40"
@@ -321,7 +365,7 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Primary Action Button: Sign in / Create account */}
+              {/* Primary Action Button: Sign in / Create account / Reset password */}
               <button
                 type="submit"
                 disabled={loading}
@@ -334,8 +378,14 @@ export default function Login() {
                 {loading ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    {isRegisterMode ? "Creating account…" : "Signing in…"}
+                    {isForgotMode
+                      ? "Resetting password…"
+                      : isRegisterMode
+                      ? "Creating account…"
+                      : "Signing in…"}
                   </>
+                ) : isForgotMode ? (
+                  "Reset password"
                 ) : isRegisterMode ? (
                   "Create account"
                 ) : (
@@ -346,16 +396,38 @@ export default function Login() {
 
             {/* Footer toggle link with high contrast (>= 4.5:1) */}
             <div className="mt-6 text-center text-xs text-[#cbd5e1]">
-              {isRegisterMode ? (
+              {isForgotMode ? (
+                <>
+                  Remember your password?{" "}
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setAuthMode("login");
+                      setError("");
+                      setSuccessMessage("");
+                      setFieldErrors({});
+                      setPassword("");
+                      setConfirmPassword("");
+                    }}
+                    className="font-semibold text-[#818cf8] hover:text-[#a5b4fc] focus:outline-none focus:underline transition cursor-pointer underline underline-offset-2 disabled:opacity-50"
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : isRegisterMode ? (
                 <>
                   Already registered?{" "}
                   <button
                     type="button"
                     disabled={loading}
                     onClick={() => {
-                      setIsRegisterMode(false);
+                      setAuthMode("login");
                       setError("");
+                      setSuccessMessage("");
                       setFieldErrors({});
+                      setPassword("");
+                      setConfirmPassword("");
                     }}
                     className="font-semibold text-[#818cf8] hover:text-[#a5b4fc] focus:outline-none focus:underline transition cursor-pointer underline underline-offset-2 disabled:opacity-50"
                   >
@@ -369,9 +441,12 @@ export default function Login() {
                     type="button"
                     disabled={loading}
                     onClick={() => {
-                      setIsRegisterMode(true);
+                      setAuthMode("register");
                       setError("");
+                      setSuccessMessage("");
                       setFieldErrors({});
+                      setPassword("");
+                      setConfirmPassword("");
                     }}
                     className="font-semibold text-[#818cf8] hover:text-[#a5b4fc] focus:outline-none focus:underline transition cursor-pointer underline underline-offset-2 disabled:opacity-50"
                   >

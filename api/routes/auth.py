@@ -5,7 +5,13 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status, Header
 
 from api.database import get_users_collection, get_connection_error
-from api.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
+from api.schemas.auth import (
+    PasswordResetRequest,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+)
 from api.services.auth import (
     create_access_token,
     decode_access_token,
@@ -136,3 +142,46 @@ def get_me(authorization: str | None = Header(None)) -> UserResponse:
         username=payload.get("username", ""),
         created_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+@router.post("/reset-password")
+def reset_password(payload: PasswordResetRequest) -> dict:
+    users = get_users_collection()
+    if users is None:
+        detail = get_connection_error() or "Database connection is not configured or unavailable."
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=detail,
+        )
+
+    email = payload.email.strip().lower()
+    if "@" not in email or "." not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address.",
+        )
+
+    try:
+        user_doc = users.find_one({"email": email})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {exc}",
+        )
+
+    if not user_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address.",
+        )
+
+    new_hash = hash_password(payload.new_password)
+    try:
+        users.update_one({"email": email}, {"$set": {"password_hash": new_hash}})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {exc}",
+        )
+
+    return {"message": "Password updated successfully. You can now sign in."}

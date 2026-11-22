@@ -66,6 +66,14 @@ export function AuthProvider({ children }) {
     return nextUser;
   }
 
+  async function resetPassword(email, newPassword) {
+    const res = await api.post("/auth/reset-password", {
+      email,
+      new_password: newPassword,
+    });
+    return res.data;
+  }
+
   function logout() {
     setToken(null);
     setUser(null);
@@ -84,6 +92,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(token && user),
     login,
     register,
+    resetPassword,
     logout,
   };
 

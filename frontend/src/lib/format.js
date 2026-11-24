@@ -130,3 +130,40 @@ export function stageProgress(run) {
   }, 0);
   return Math.max(0, Math.min(100, Math.round((total / AGENTS.length) * 100)));
 }
+
+export function formatModelName(model) {
+  if (!model) return "";
+  const base = model.includes("/") ? model.split("/")[1] : model;
+  const isFree = base.endsWith(":free");
+  const clean = base.replace(/:free$/, "").replace(/-\d{4,}$/, "");
+
+  if (clean.toLowerCase().includes("deepseek-v4")) return `DeepSeek v4.1${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("deepseek")) return `DeepSeek${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("nemotron-3")) return `Nemotron-3 Ultra${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("nemotron")) return `Nemotron${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("llama-3.3")) return `Llama 3.3 70B${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("llama")) return `Llama${isFree ? " (Free)" : ""}`;
+  if (clean.toLowerCase().includes("claude-3.5")) return `Claude 3.5 Sonnet`;
+
+  return (
+    clean
+      .split(/[-_]/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ") + (isFree ? " (Free)" : "")
+  );
+}
+
+export function formatModelShort(model) {
+  if (!model) return "";
+  const base = model.includes("/") ? model.split("/")[1] : model;
+  const isFree = base.endsWith(":free");
+  const clean = base.replace(/:free$/, "").replace(/-\d{4,}$/, "");
+
+  if (clean.toLowerCase().includes("deepseek-v4")) return "deepseek-v4.1";
+  if (clean.toLowerCase().includes("deepseek")) return "deepseek";
+  if (clean.toLowerCase().includes("nemotron-3")) return isFree ? "nemotron:free" : "nemotron-3";
+  if (clean.toLowerCase().includes("llama-3.3")) return "llama-3.3";
+  if (clean.toLowerCase().includes("claude-3.5")) return "claude-3.5";
+
+  return clean.split(/[-_]/).slice(0, 2).join("-") + (isFree ? ":free" : "");
+}

@@ -17,6 +17,7 @@ class AgentState(BaseModel):
     finished_at: str | None = None
     error: str | None = None
     message: str | None = None
+    model: str | None = None
     components: list[ComponentProgress] = Field(default_factory=list)
     component_generation_status: str | None = None
     interface_validation_status: str | None = None

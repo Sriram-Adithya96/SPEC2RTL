@@ -1,4 +1,5 @@
 import {
+  Bot,
   ChevronDown,
   Code2,
   Cpu,
@@ -12,7 +13,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { apiUrl } from "../api";
 import { useRuns } from "../context/RunContext";
-import { AGENTS, formatTime, formatTokens, formatTokensCompact, getAgentUsage } from "../lib/format";
+import {
+  AGENTS,
+  formatModelName,
+  formatModelShort,
+  formatTime,
+  formatTokens,
+  formatTokensCompact,
+  getAgentUsage,
+} from "../lib/format";
 import DecompositionView from "../views/DecompositionView";
 import DescriptionView from "../views/DescriptionView";
 import PseudocodeView from "../views/PseudocodeView";
@@ -83,7 +92,7 @@ function nodeStyle(status) {
 }
 
 /** Horizontal pipeline node strip */
-function PipelineNodes({ run, expanded, onSelect }) {
+function PipelineNodes({ run, expanded, onSelect, modelConfig }) {
   return (
     <div className="mb-5 overflow-x-auto">
       <div className="flex w-full min-w-max items-start gap-0 px-1 py-3">
@@ -93,6 +102,12 @@ function PipelineNodes({ run, expanded, onSelect }) {
           const Icon = ICONS[agent.id];
           const isActive = expanded === agent.id;
           const agentUsage = getAgentUsage(run, agent.id);
+          const agentModel =
+            state.model ||
+            modelConfig?.agents?.[agent.id] ||
+            (modelConfig?.mode === "paid"
+              ? "deepseek/deepseek-v4.1-flash-1017"
+              : "nvidia/nemotron-3-ultra-550b-a55b:free");
 
           return (
             <div
@@ -103,7 +118,7 @@ function PipelineNodes({ run, expanded, onSelect }) {
               <button
                 type="button"
                 onClick={() => onSelect(isActive ? null : agent.id)}
-                title={agent.name}
+                title={`${agent.name}${agentModel ? ` (${formatModelName(agentModel)})` : ""}`}
                 aria-label={`${agent.name} — ${state.status || "pending"}`}
                 className="flex flex-col items-center gap-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--acc)] focus-visible:ring-offset-2"
               >
@@ -144,6 +159,14 @@ function PipelineNodes({ run, expanded, onSelect }) {
                       ⚡{formatTokensCompact(agentUsage.total_tokens)}
                     </div>
                   )}
+                  {agentModel && (
+                    <div
+                      className="mt-1 inline-block truncate max-w-[62px] rounded px-1 py-0.5 text-[7.5px] font-mono font-medium text-[var(--mute)] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+                      title={`Model: ${agentModel}`}
+                    >
+                      {formatModelShort(agentModel)}
+                    </div>
+                  )}
                 </div>
               </button>
 
@@ -172,7 +195,7 @@ function PipelineNodes({ run, expanded, onSelect }) {
 }
 
 export default function AgentBoard({ run }) {
-  const { outputs, loadOutput } = useRuns();
+  const { outputs, loadOutput, modelConfig } = useRuns();
   const runId = run?.run_id;
   const [expanded, setExpanded] = useState(null);
   const [mode, setMode] = useState("formatted");
@@ -218,7 +241,7 @@ export default function AgentBoard({ run }) {
     <div>
       {/* Pipeline node visualization */}
       <div className="glass mb-4 overflow-hidden px-4 py-2">
-        <PipelineNodes run={run} expanded={expanded} onSelect={handleSelect} />
+        <PipelineNodes run={run} expanded={expanded} onSelect={handleSelect} modelConfig={modelConfig} />
       </div>
 
       {/* Agent accordion cards */}
@@ -232,6 +255,12 @@ export default function AgentBoard({ run }) {
           const components = state.components || [];
           const ns = nodeStyle(state.status || "pending");
           const agentUsage = getAgentUsage(run, agent.id);
+          const agentModel =
+            state.model ||
+            modelConfig?.agents?.[agent.id] ||
+            (modelConfig?.mode === "paid"
+              ? "deepseek/deepseek-v4.1-flash-1017"
+              : "nvidia/nemotron-3-ultra-550b-a55b:free");
 
           return (
             <article
@@ -284,6 +313,15 @@ export default function AgentBoard({ run }) {
                   <div className="mt-0.5 flex flex-wrap items-center gap-2">
                     <h3 className="font-bold font-mono text-[var(--text)]">{agent.name}</h3>
                     <StatusBadge status={state.status || "pending"} />
+                    {agentModel && (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.08)] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#c4b5fd]"
+                        title={`Configured Model: ${agentModel}`}
+                      >
+                        <Bot size={11} className="text-[#a78bfa]" />
+                        {formatModelName(agentModel)}
+                      </span>
+                    )}
                     {agentUsage?.total_tokens > 0 && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full border border-[rgba(125,211,252,0.3)] bg-[rgba(125,211,252,0.08)] px-2 py-0.5 font-mono text-[10px] font-bold text-[var(--acc)]"
@@ -374,7 +412,7 @@ export default function AgentBoard({ run }) {
                       <>
                         {/* Token usage metrics for this agent */}
                         {agentUsage?.total_tokens > 0 && (
-                          <AgentTokenCard usage={agentUsage} />
+                          <AgentTokenCard usage={agentUsage} model={agentModel} />
                         )}
 
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -489,7 +527,7 @@ function IssueList({ title, items, warning = false }) {
   );
 }
 
-function AgentTokenCard({ usage }) {
+function AgentTokenCard({ usage, model }) {
   if (!usage || !usage.calls) return null;
   const byComponent = Object.entries(usage.by_component || {});
   return (
@@ -497,6 +535,14 @@ function AgentTokenCard({ usage }) {
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)]/60 pb-2 mb-2.5">
         <span className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[var(--acc)]">
           <span>⚡</span> Agent Token Usage
+          {model && (
+            <span
+              className="ml-2 font-mono text-[10.5px] font-semibold text-[#c4b5fd] bg-[rgba(167,139,250,0.12)] border border-[rgba(167,139,250,0.25)] px-2 py-0.5 rounded-md normal-case"
+              title={`Model: ${model}`}
+            >
+              🤖 {formatModelName(model)}
+            </span>
+          )}
         </span>
         <span className="font-mono text-[11px] text-[var(--mute)]">
           {usage.calls} model call{usage.calls > 1 ? "s" : ""}{usage.complete ? "" : " (in progress)"}

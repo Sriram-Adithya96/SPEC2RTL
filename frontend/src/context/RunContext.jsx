@@ -12,8 +12,16 @@ export function RunProvider({ children }) {
   const [outputs, setOutputs] = useState({});
   const [starting, setStarting] = useState(false);
   const [banner, setBanner] = useState(null);
+  const [modelConfig, setModelConfig] = useState(null);
   const sourceRef = useRef(null);
   const pollRef = useRef(null);
+
+  useEffect(() => {
+    api
+      .get("/config/models")
+      .then((res) => setModelConfig(res.data))
+      .catch(() => {});
+  }, []);
 
   async function refreshRuns() {
     try {
@@ -212,9 +220,10 @@ export function RunProvider({ children }) {
       startRun,
       cancelRun,
       loadOutput,
+      modelConfig,
       running: starting || active?.status === "running",
     }),
-    [runs, active, activeId, outputs, starting, banner],
+    [runs, active, activeId, outputs, starting, banner, modelConfig],
   );
 
   return <RunContext.Provider value={value}>{children}</RunContext.Provider>;

@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 import queue
 import re
 import shutil
@@ -90,6 +91,29 @@ def build_token_usage(by_agent: dict[str, dict]) -> dict:
     }
 
 
+def get_agent_model(agent_name: str | None = None) -> str:
+    """Return the configured LLM model string for the specified agent."""
+    mode = os.getenv("SPEC2RTL_MODE", "free").strip().lower()
+    if mode == "paid":
+        return os.getenv("SPEC2RTL_PAID_OPENROUTER_MODEL", "").strip() or "deepseek/deepseek-v4.1-flash-1017"
+
+    agent_env_names = {
+        "understanding": "SPEC2RTL_OPENROUTER_UNDERSTANDING_MODEL",
+        "decomposer": "SPEC2RTL_OPENROUTER_DECOMPOSER_MODEL",
+        "description": "SPEC2RTL_OPENROUTER_DESCRIPTION_MODEL",
+        "verification": "SPEC2RTL_OPENROUTER_VERIFICATION_MODEL",
+        "pseudocode": "SPEC2RTL_OPENROUTER_PSEUDOCODE_MODEL",
+        "rtl_generation": "SPEC2RTL_OPENROUTER_RTL_GENERATION_MODEL",
+        "rtl_verification": "SPEC2RTL_OPENROUTER_VERIFICATION_MODEL",
+        "reflection": "SPEC2RTL_OPENROUTER_REFLECTION_MODEL",
+    }
+    model_env_name = agent_env_names.get(agent_name)
+    model = os.getenv(model_env_name, "").strip() if model_env_name else ""
+    if not model:
+        model = os.getenv("SPEC2RTL_OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free").strip()
+    return model
+
+
 def empty_metadata(run_id: str, filename: str, file_size: int, file_type: str) -> dict:
     return {
         "run_id": run_id,
@@ -110,6 +134,7 @@ def empty_metadata(run_id: str, filename: str, file_size: int, file_type: str) -
                 "finished_at": None,
                 "error": None,
                 "message": None,
+                "model": get_agent_model(name),
                 "components": [],
             }
             for name in AGENT_ORDER
@@ -294,6 +319,9 @@ class RunManager:
                                     break
                             except Exception:
                                 pass
+                for agent_name, agent in metadata.get("agents", {}).items():
+                    if not agent.get("model"):
+                        agent["model"] = get_agent_model(agent_name)
                 self._remember(metadata)
                 # Sync local run and its artifacts to MongoDB Atlas if connected
                 self._write_db(metadata)
@@ -325,6 +353,9 @@ class RunManager:
                             col.replace_one({"run_id": run_id}, doc, upsert=True)
                         except Exception:
                             pass
+                    for agent_name, agent in doc.get("agents", {}).items():
+                        if not agent.get("model"):
+                            agent["model"] = get_agent_model(agent_name)
                     if run_id not in self._runs:
                         self._remember(doc)
                         try:
